@@ -55,6 +55,7 @@ model Exercise {
 model Camp {
   id          String    @id @default(cuid())
   name        String
+  description String?
   code        String    @unique
   createdById String
   createdBy   User      @relation("CampCreator", fields: [createdById], references: [id])

@@ -9,6 +9,7 @@ router.use(requireAuth);
 
 const createCampSchema = z.object({
   name: z.string().min(1, "Le nom du camp est requis."),
+  description: z.string().max(500).optional().nullable(),
   exerciseIds: z.array(z.string()).min(1, "Selectionne au moins un exercice."),
   startDate: z.string().optional().nullable(), // format ISO "YYYY-MM-DD"
   endDate: z.string().optional().nullable(),
@@ -21,7 +22,7 @@ router.post("/", async (req: AuthRequest, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
-  const { name, exerciseIds, startDate, endDate } = parsed.data;
+  const { name, description, exerciseIds, startDate, endDate } = parsed.data;
 
   if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
     return res.status(400).json({ error: "La date de fin doit etre apres la date de debut." });
@@ -38,6 +39,7 @@ router.post("/", async (req: AuthRequest, res) => {
   const camp = await prisma.camp.create({
     data: {
       name,
+      description: description || null,
       code,
       createdById: req.userId!,
       startDate: startDate ? new Date(startDate) : null,
@@ -112,6 +114,31 @@ router.get("/:id", async (req: AuthRequest, res) => {
   });
   if (!camp) return res.status(404).json({ error: "Camp introuvable." });
   res.json(camp);
+});
+
+const updateCampSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().max(500).optional().nullable(),
+});
+
+// Modifie le nom/descriptif d'un camp : reserve au createur du camp
+router.put("/:id", async (req: AuthRequest, res) => {
+  const camp = await prisma.camp.findUnique({ where: { id: req.params.id } });
+  if (!camp) return res.status(404).json({ error: "Camp introuvable." });
+  if (camp.createdById !== req.userId) {
+    return res.status(403).json({ error: "Seul le createur du camp peut le modifier." });
+  }
+
+  const parsed = updateCampSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  }
+
+  const updated = await prisma.camp.update({
+    where: { id: req.params.id },
+    data: parsed.data,
+  });
+  res.json(updated);
 });
 
 export default router;

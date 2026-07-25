@@ -20,9 +20,9 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="p-6">
           <div className="flex items-center gap-2 mb-8">
             <span className="w-8 h-8 rounded bg-accent flex items-center justify-center font-display font-bold text-bg text-lg">
-              C
+              G
             </span>
-            <span className="font-display text-lg tracking-wide uppercase">Camp</span>
+            <span className="font-display text-lg tracking-wide uppercase">GoTeam</span>
           </div>
           <nav className="hidden md:flex md:flex-col gap-1">
             {navItems.map((item) => (

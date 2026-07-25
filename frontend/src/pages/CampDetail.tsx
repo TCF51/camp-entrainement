@@ -12,6 +12,7 @@ interface CampExerciseData extends Program {
 interface CampDetailData {
   id: string;
   name: string;
+  description: string | null;
   code: string;
   createdById: string;
   startDate: string | null;
@@ -35,12 +36,27 @@ export default function CampDetail() {
   const { user } = useAuth();
   const [camp, setCamp] = useState<CampDetailData | null>(null);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState("");
+  const [savingDescription, setSavingDescription] = useState(false);
 
   function load() {
     if (!id) return;
     api.get<CampDetailData>(`/camps/${id}`).then(setCamp);
   }
   useEffect(load, [id]);
+
+  async function saveDescription() {
+    if (!camp) return;
+    setSavingDescription(true);
+    try {
+      await api.put(`/camps/${camp.id}`, { description: descriptionDraft.trim() || null });
+      setEditingDescription(false);
+      load();
+    } finally {
+      setSavingDescription(false);
+    }
+  }
 
   if (!camp) return <p className="text-muted">Chargement...</p>;
 
@@ -74,6 +90,62 @@ export default function CampDetail() {
       >
         💬 Discussion du camp
       </Link>
+
+      <div className="mt-4">
+        {editingDescription ? (
+          <div className="bg-surface2 border border-border rounded-lg p-3">
+            <textarea
+              value={descriptionDraft}
+              onChange={(e) => setDescriptionDraft(e.target.value)}
+              placeholder="Descriptif du camp..."
+              rows={3}
+              className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-sm resize-none mb-2"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={saveDescription}
+                disabled={savingDescription}
+                className="bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md px-3 py-1.5 text-sm disabled:opacity-60"
+              >
+                {savingDescription ? "Enregistrement..." : "Enregistrer"}
+              </button>
+              <button
+                onClick={() => setEditingDescription(false)}
+                className="text-muted hover:text-text text-sm px-2"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        ) : camp.description ? (
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-muted italic">{camp.description}</p>
+            {isCoach && (
+              <button
+                onClick={() => {
+                  setDescriptionDraft(camp.description ?? "");
+                  setEditingDescription(true);
+                }}
+                className="text-xs text-accent hover:text-accentSoft shrink-0"
+              >
+                Modifier
+              </button>
+            )}
+          </div>
+        ) : (
+          isCoach && (
+            <button
+              onClick={() => {
+                setDescriptionDraft("");
+                setEditingDescription(true);
+              }}
+              className="text-xs text-accent hover:text-accentSoft"
+            >
+              + Ajouter un descriptif au camp
+            </button>
+          )
+        )}
+      </div>
 
       <h2 className="font-display uppercase tracking-wide text-lg mt-8 mb-1">Exercices du camp</h2>
       <p className="text-muted text-sm mb-4">

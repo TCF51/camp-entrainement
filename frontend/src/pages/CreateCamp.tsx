@@ -6,6 +6,7 @@ import ExercisePicker from "../components/ExercisePicker";
 export default function CreateCamp() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -29,6 +30,7 @@ export default function CreateCamp() {
     try {
       const camp = await api.post<{ id: string; code: string }>("/camps", {
         name,
+        description: description.trim() || null,
         exerciseIds: selected,
         startDate: startDate || null,
         endDate: endDate || null,
@@ -83,6 +85,20 @@ export default function CreateCamp() {
             onChange={(e) => setName(e.target.value)}
             placeholder="Ex : Preparation pompiers volontaires"
             className="w-full bg-surface2 border border-border rounded-md px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-muted mb-1" htmlFor="description">
+            Descriptif du camp (optionnel)
+          </label>
+          <textarea
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Ex : Preparation physique pour les tests d'entree pompiers volontaires..."
+            rows={3}
+            className="w-full bg-surface2 border border-border rounded-md px-3 py-2 resize-none"
           />
         </div>
 
