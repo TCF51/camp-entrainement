@@ -8,6 +8,12 @@ RUN npm install
 COPY . .
 RUN mkdir -p /app/data
 
+# Railway (et la plupart des plateformes) ne fournissent les variables d'environnement
+# qu'au DEMARRAGE du conteneur, pas pendant sa construction. Or `prisma generate` a besoin
+# que DATABASE_URL soit resolvable au moment du build. On lui donne donc une valeur factice
+# ici ; la vraie valeur (definie dans Railway) prendra le relais au demarrage via `db push`.
+ENV DATABASE_URL="file:./dev.db"
+
 RUN npx prisma generate
 RUN npm run build
 
