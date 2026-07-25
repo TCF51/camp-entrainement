@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+# Prisma a besoin d'OpenSSL pour que son moteur fonctionne correctement sur Alpine Linux
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 COPY package*.json ./
