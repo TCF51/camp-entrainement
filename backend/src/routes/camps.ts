@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AuthRequest, requireAuth } from "../middleware/auth";
 import { generateCampCode } from "../utils/code";
+import { isDueOnDate, toDayStart } from "../utils/recurrence";
 
 const router = Router();
 router.use(requireAuth);
@@ -139,6 +140,93 @@ router.put("/:id", async (req: AuthRequest, res) => {
     data: parsed.data,
   });
   res.json(updated);
+});
+
+// Supprime definitivement un camp : reserve au createur du camp.
+// Supprime aussi en cascade les exercices du camp, les adhesions, les logs et les messages associes.
+router.delete("/:id", async (req: AuthRequest, res) => {
+  const camp = await prisma.camp.findUnique({ where: { id: req.params.id } });
+  if (!camp) return res.status(404).json({ error: "Camp introuvable." });
+  if (camp.createdById !== req.userId) {
+    return res.status(403).json({ error: "Seul le createur du camp peut le supprimer." });
+  }
+
+  await prisma.camp.delete({ where: { id: req.params.id } });
+  res.status(204).send();
+});
+
+// Classement des membres du camp base UNIQUEMENT sur leur regularite personnelle
+// (taux de seances realisees par rapport aux seances dues, et jours consecutifs) --
+// jamais sur les performances (poids, repetitions, etc.).
+router.get("/:id/leaderboard", async (req: AuthRequest, res) => {
+  const campId = req.params.id;
+  const membership = await prisma.campMembership.findUnique({
+    where: { userId_campId: { userId: req.userId!, campId } },
+  });
+  if (!membership) return res.status(403).json({ error: "Tu n'es pas membre de ce camp." });
+
+  const camp = await prisma.camp.findUnique({
+    where: { id: campId },
+    include: {
+      exercises: true,
+      members: { include: { user: { select: { id: true, name: true } } } },
+    },
+  });
+  if (!camp) return res.status(404).json({ error: "Camp introuvable." });
+
+  const today = toDayStart(new Date());
+  const results = [];
+
+  for (const member of camp.members) {
+    const logs = await prisma.exerciseLog.findMany({
+      where: { userId: member.userId, campId },
+      select: { date: true },
+    });
+    const completedDates = new Set(logs.map((l) => l.date.toISOString().slice(0, 10)));
+
+    let dueCount = 0;
+    let doneCount = 0;
+    for (const ce of camp.exercises) {
+      const effectiveStart = toDayStart(
+        new Date(Math.max(new Date(ce.startDate).getTime(), new Date(member.joinedAt).getTime()))
+      );
+      const cursor = new Date(effectiveStart);
+      while (cursor.getTime() <= today.getTime()) {
+        if (isDueOnDate(ce, cursor)) {
+          dueCount++;
+          if (completedDates.has(cursor.toISOString().slice(0, 10))) doneCount++;
+        }
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      }
+    }
+    const regularityRate = dueCount > 0 ? Math.round((doneCount / dueCount) * 100) : 0;
+
+    // Streak propre a ce camp : jours consecutifs (en remontant depuis aujourd'hui/hier)
+    // avec au moins une seance validee dans ce camp.
+    let streak = 0;
+    const cursor2 = toDayStart(today);
+    if (!completedDates.has(cursor2.toISOString().slice(0, 10))) {
+      cursor2.setUTCDate(cursor2.getUTCDate() - 1);
+    }
+    for (let i = 0; i < 3650; i++) {
+      const key = cursor2.toISOString().slice(0, 10);
+      if (!completedDates.has(key)) break;
+      streak++;
+      cursor2.setUTCDate(cursor2.getUTCDate() - 1);
+    }
+
+    results.push({
+      userId: member.userId,
+      name: member.user.name,
+      regularityRate,
+      streak,
+      dueCount,
+      doneCount,
+    });
+  }
+
+  results.sort((a, b) => b.regularityRate - a.regularityRate || b.streak - a.streak);
+  res.json(results);
 });
 
 export default router;

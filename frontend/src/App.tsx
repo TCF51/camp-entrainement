@@ -15,6 +15,8 @@ import Progress from "./pages/Progress";
 import ExerciseRepository from "./pages/ExerciseRepository";
 import CampChat from "./pages/CampChat";
 import Messages from "./pages/Messages";
+import CampLeaderboard from "./pages/CampLeaderboard";
+import Chrono from "./pages/Chrono";
 
 function Private({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -38,6 +40,8 @@ export default function App() {
       <Route path="/camps/:id/progression/:exerciseId" element={<Private><Progress /></Private>} />
       <Route path="/exercices" element={<Private><ExerciseRepository /></Private>} />
       <Route path="/camps/:id/discussion" element={<Private><CampChat /></Private>} />
+      <Route path="/camps/:id/classement" element={<Private><CampLeaderboard /></Private>} />
+      <Route path="/chrono" element={<Private><Chrono /></Private>} />
       <Route path="/messages" element={<Private><Messages /></Private>} />
 
       <Route path="*" element={<Navigate to="/aujourdhui" replace />} />

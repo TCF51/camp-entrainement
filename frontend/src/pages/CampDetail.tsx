@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import ProgramForm, { Program } from "../components/ProgramForm";
@@ -33,18 +33,32 @@ const RECURRENCE_LABEL: Record<string, (p: Program) => string> = {
 
 export default function CampDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [camp, setCamp] = useState<CampDetailData | null>(null);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [savingDescription, setSavingDescription] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function load() {
     if (!id) return;
     api.get<CampDetailData>(`/camps/${id}`).then(setCamp);
   }
   useEffect(load, [id]);
+
+  async function deleteCamp() {
+    if (!camp) return;
+    setDeleting(true);
+    try {
+      await api.del(`/camps/${camp.id}`);
+      navigate("/camps");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   async function saveDescription() {
     if (!camp) return;
@@ -84,12 +98,46 @@ export default function CampDetail() {
         </div>
       </div>
 
-      <Link
-        to={`/camps/${camp.id}/discussion`}
-        className="inline-block mt-2 text-sm text-accent hover:text-accentSoft"
-      >
-        💬 Discussion du camp
-      </Link>
+      <div className="flex items-center gap-4 flex-wrap mt-2">
+        <Link to={`/camps/${camp.id}/discussion`} className="text-sm text-accent hover:text-accentSoft">
+          💬 Discussion du camp
+        </Link>
+        <Link to={`/camps/${camp.id}/classement`} className="text-sm text-accent hover:text-accentSoft">
+          📊 Classement (regularite)
+        </Link>
+        {isCoach && (
+          <button
+            onClick={() => setConfirmingDelete(true)}
+            className="text-sm text-muted hover:text-accent ml-auto"
+          >
+            Supprimer le camp
+          </button>
+        )}
+      </div>
+
+      {confirmingDelete && (
+        <div className="bg-surface border border-accent rounded-lg p-4 mt-3">
+          <p className="text-sm mb-3">
+            Supprimer definitivement le camp "{camp.name}" ? Cette action est irreversible : l'historique des
+            seances de tous les membres pour ce camp sera perdu.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={deleteCamp}
+              disabled={deleting}
+              className="bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md px-3 py-1.5 text-sm disabled:opacity-60"
+            >
+              {deleting ? "Suppression..." : "Oui, supprimer"}
+            </button>
+            <button
+              onClick={() => setConfirmingDelete(false)}
+              className="text-muted hover:text-text text-sm px-2"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-4">
         {editingDescription ? (
