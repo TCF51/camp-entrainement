@@ -1,7 +1,7 @@
 // Logique de recurrence : determine si un programme (exercice + planning)
 // est "du" un jour donne, independamment du fait qu'il ait ete fait ou non.
 
-export type RecurrenceType = "DAILY" | "WEEKLY" | "EVERY_N_DAYS";
+export type RecurrenceType = string;
 
 export interface RecurrenceInput {
   recurrenceType: RecurrenceType;

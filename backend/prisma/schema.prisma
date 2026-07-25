@@ -12,16 +12,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum ExerciseUnit {
-  REPS    // exercice compte en repetitions (ex: pompes)
-  SECONDS // exercice compte en duree tenue (ex: gainage, chaise)
-}
-
-enum RecurrenceType {
-  DAILY         // tous les jours
-  WEEKLY        // certains jours de la semaine
-  EVERY_N_DAYS  // tous les X jours
-}
+// Note : pas d'enum Prisma ici (ExerciseUnit / RecurrenceType) car SQLite ne supporte pas
+// les enums natifs. Les valeurs autorisees sont validees cote API avec zod.
 
 model User {
   id             String   @id @default(cuid())
@@ -46,7 +38,7 @@ model Exercise {
   id          String       @id @default(cuid())
   name        String
   description String?
-  unit        ExerciseUnit
+  unit        String       // "REPS" ou "SECONDS"
   isCustom    Boolean      @default(false)
   createdById String?
   createdBy   User?        @relation("ExerciseCreator", fields: [createdById], references: [id])
@@ -99,7 +91,7 @@ model UserProgram {
   exerciseId     String
   targetSets     Int
   targetValue    Int            // nombre de repetitions OU nombre de secondes (voir Exercise.unit)
-  recurrenceType RecurrenceType
+  recurrenceType String         // "DAILY" | "WEEKLY" | "EVERY_N_DAYS"
   daysOfWeek     String?        // JSON array ex: "[1,3,5]" (0=dimanche ... 6=samedi), utilise si WEEKLY
   intervalDays   Int?           // utilise si EVERY_N_DAYS
   startDate      DateTime       @default(now())

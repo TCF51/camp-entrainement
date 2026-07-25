@@ -1,10 +1,10 @@
 // Peuple la base avec un catalogue d'exercices "de base" a choix large.
 // Lancer avec : npm run seed
-import { PrismaClient, ExerciseUnit } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const DEFAULT_EXERCISES: { name: string; description: string; unit: ExerciseUnit }[] = [
+const DEFAULT_EXERCISES: { name: string; description: string; unit: "REPS" | "SECONDS" }[] = [
   { name: "Pompes", description: "Pompes classiques, poitrine proche du sol.", unit: "REPS" },
   { name: "Chaise contre le mur", description: "Dos au mur, cuisses a l'horizontale, on tient.", unit: "SECONDS" },
   { name: "Gainage planche", description: "Gainage ventral sur les avant-bras, corps aligne.", unit: "SECONDS" },
