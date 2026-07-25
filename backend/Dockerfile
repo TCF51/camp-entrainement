@@ -23,6 +23,8 @@ RUN npm run build
 EXPOSE 4000
 
 # Synchronise le schema avec la base (simple pour un self-hosting MVP) puis demarre l'API.
+# --accept-data-loss : necessaire car la commande tourne sans interaction possible au demarrage
+# du conteneur (elle bloquerait sinon en attendant une confirmation qui ne peut jamais venir).
 # Pour un vrai historique de migrations en production, remplace par :
 # npx prisma migrate deploy (apres avoir genere une migration avec `npm run prisma:migrate:dev` en local)
-CMD npx prisma db push --skip-generate && node dist/index.js
+CMD npx prisma db push --skip-generate --accept-data-loss && node dist/index.js
