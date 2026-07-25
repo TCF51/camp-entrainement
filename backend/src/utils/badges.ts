@@ -86,7 +86,6 @@ export async function checkAndAwardBadges(userId: string): Promise<BadgeDefiniti
 
   await prisma.userBadge.createMany({
     data: newlyEarned.map((badgeKey) => ({ userId, badgeKey })),
-    skipDuplicates: true,
   });
 
   return BADGE_CATALOG.filter((b) => newlyEarned.includes(b.key));
