@@ -20,47 +20,56 @@ export function initPush() {
   console.log("[push] Notifications push configurees.");
 }
 
-// Verifie, pour chaque utilisateur, les exercices dus aujourd'hui et pas encore faits,
-// puis envoie une notification de rappel groupee.
+// Verifie, pour chaque utilisateur, les exercices dus aujourd'hui (selon la consigne du camp)
+// et pas encore faits, puis envoie une notification de rappel groupee.
 export async function sendDailyReminders() {
   const today = toDayStart(new Date());
 
-  const programs = await prisma.userProgram.findMany({
-    where: { active: true },
-    include: { exercise: true, camp: true, user: { include: { subscriptions: true } } },
+  const memberships = await prisma.campMembership.findMany({
+    include: {
+      user: { include: { subscriptions: true } },
+      camp: { include: { exercises: { include: { exercise: true } } } },
+    },
   });
 
   const dueByUser = new Map<string, { name: string }[]>();
 
-  for (const program of programs) {
-    if (!isDueOnDate(program, today)) continue;
+  for (const membership of memberships) {
+    const { camp, userId } = membership;
+    if (camp.startDate && today.getTime() < toDayStart(camp.startDate).getTime()) continue;
+    if (camp.endDate && today.getTime() > toDayStart(camp.endDate).getTime()) continue;
 
-    const alreadyLogged = await prisma.exerciseLog.findUnique({
-      where: {
-        userId_campId_exerciseId_date: {
-          userId: program.userId,
-          campId: program.campId,
-          exerciseId: program.exerciseId,
-          date: today,
+    for (const ce of camp.exercises) {
+      if (!isDueOnDate(ce, today)) continue;
+
+      const alreadyLogged = await prisma.exerciseLog.findUnique({
+        where: {
+          userId_campId_exerciseId_date: {
+            userId,
+            campId: ce.campId,
+            exerciseId: ce.exerciseId,
+            date: today,
+          },
         },
-      },
-    });
-    if (alreadyLogged) continue;
+      });
+      if (alreadyLogged) continue;
 
-    const list = dueByUser.get(program.userId) || [];
-    list.push({ name: program.exercise.name });
-    dueByUser.set(program.userId, list);
+      const list = dueByUser.get(userId) || [];
+      list.push({ name: ce.exercise.name });
+      dueByUser.set(userId, list);
+    }
   }
 
-  for (const program of programs) {
-    const pending = dueByUser.get(program.userId);
-    if (!pending || pending.length === 0) continue;
-    const subscriptions = program.user.subscriptions;
+  const subscriptionsByUser = new Map(memberships.map((m) => [m.userId, m.user.subscriptions]));
+
+  for (const [userId, pending] of dueByUser) {
+    if (pending.length === 0) continue;
+    const subscriptions = subscriptionsByUser.get(userId) ?? [];
     if (subscriptions.length === 0) continue;
 
     const names = [...new Set(pending.map((p) => p.name))];
     const payload = JSON.stringify({
-      title: "N'oublie pas ta seance ! 💪",
+      title: "C'est le moment de faire votre seance ! 💪",
       body:
         names.length === 1
           ? `${names[0]} t'attend aujourd'hui.`
@@ -82,8 +91,6 @@ export async function sendDailyReminders() {
         }
       }
     }
-    // On ne renvoie qu'une fois par utilisateur (evite les doublons sur plusieurs programmes)
-    dueByUser.delete(program.userId);
   }
 }
 

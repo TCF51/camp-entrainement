@@ -96,19 +96,19 @@ export default function Progress() {
           <div style={{ width: "100%", height: 260 }}>
             <ResponsiveContainer>
               <LineChart data={data.history}>
-                <CartesianGrid stroke="#D5E6EA" strokeDasharray="3 3" />
-                <XAxis dataKey="date" stroke="#5C7A81" tick={{ fontSize: 11 }} />
+                <CartesianGrid stroke="#2E323A" strokeDasharray="3 3" />
+                <XAxis dataKey="date" stroke="#8B909A" tick={{ fontSize: 11 }} />
                 <YAxis
-                  stroke="#5C7A81"
+                  stroke="#8B909A"
                   tick={{ fontSize: 11 }}
                   tickFormatter={(v: number) => (unit === "SECONDS" ? secondsToMMSS(v) : String(v))}
                 />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#FFFFFF", border: "1px solid #D5E6EA", fontSize: 12 }}
-                  labelStyle={{ color: "#152B31" }}
+                  contentStyle={{ backgroundColor: "#1D2025", border: "1px solid #2E323A", fontSize: 12 }}
+                  labelStyle={{ color: "#F4F2EC" }}
                   formatter={(v: number) => (unit === "SECONDS" ? secondsToMMSS(v) : v)}
                 />
-                <Line type="monotone" dataKey="valueDone" stroke="#1B8CA3" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="valueDone" stroke="#FF4B2E" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>

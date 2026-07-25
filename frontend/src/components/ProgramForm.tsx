@@ -1,9 +1,14 @@
 import { useState } from "react";
 import { api, ApiError } from "../api/client";
+import DurationInput from "./DurationInput";
 
+// "Program" designe ici la consigne d'un exercice au sein d'un camp (CampExercise cote API).
+// Seul le createur du camp (la "casquette entraineur") peut la modifier ; les autres membres
+// ne font que la consulter (voir CampDetail.tsx).
 export interface Program {
   id: string;
   exerciseId: string;
+  description: string | null;
   targetSets: number;
   targetMode: "FIXED" | "MAX";
   targetValue: number | null;
@@ -33,6 +38,7 @@ const WEEKDAYS = [
 ];
 
 export default function ProgramForm({ campId, exerciseId, exerciseName, unit, existing, onSaved, onCancel }: Props) {
+  const [description, setDescription] = useState(existing?.description ?? "");
   const [targetSets, setTargetSets] = useState(existing?.targetSets ?? 3);
   const [targetMode, setTargetMode] = useState<"FIXED" | "MAX">(existing?.targetMode ?? "FIXED");
   const [targetValue, setTargetValue] = useState(existing?.targetValue ?? (unit === "REPS" ? 10 : 30));
@@ -61,6 +67,7 @@ export default function ProgramForm({ campId, exerciseId, exerciseName, unit, ex
       const payload: Record<string, unknown> = {
         campId,
         exerciseId,
+        description: description.trim() || null,
         targetSets,
         targetMode,
         recurrenceType,
@@ -69,20 +76,31 @@ export default function ProgramForm({ campId, exerciseId, exerciseName, unit, ex
       if (recurrenceType === "WEEKLY") payload.daysOfWeek = daysOfWeek;
       if (recurrenceType === "EVERY_N_DAYS") payload.intervalDays = intervalDays;
 
-      await api.post("/programs", payload);
+      await api.put("/camp-exercises", payload);
       onSaved();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Impossible d'enregistrer ce programme.");
+      setError(err instanceof ApiError ? err.message : "Impossible d'enregistrer cette consigne.");
     } finally {
       setBusy(false);
     }
   }
 
-  const unitLabel = unit === "REPS" ? "repetitions" : "secondes tenues";
+  const unitLabel = unit === "REPS" ? "repetitions" : "duree";
 
   return (
     <div className="bg-surface2 border border-border rounded-lg p-4 space-y-4">
       <h3 className="font-display uppercase tracking-wide text-sm">{exerciseName}</h3>
+
+      <div>
+        <label className="block text-xs text-muted mb-1">Consigne (visible par tous les membres)</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Ex : Dos bien droit, descendre lentement..."
+          rows={2}
+          className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-sm resize-none"
+        />
+      </div>
 
       <div>
         <label className="block text-xs text-muted mb-1">Type d'objectif</label>
@@ -122,13 +140,17 @@ export default function ProgramForm({ campId, exerciseId, exerciseName, unit, ex
         {targetMode === "FIXED" ? (
           <div>
             <label className="block text-xs text-muted mb-1">{unitLabel} par serie</label>
-            <input
-              type="number"
-              min={1}
-              value={targetValue}
-              onChange={(e) => setTargetValue(Number(e.target.value))}
-              className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-sm"
-            />
+            {unit === "SECONDS" ? (
+              <DurationInput totalSeconds={targetValue} onChange={setTargetValue} />
+            ) : (
+              <input
+                type="number"
+                min={1}
+                value={targetValue}
+                onChange={(e) => setTargetValue(Number(e.target.value))}
+                className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-sm"
+              />
+            )}
           </div>
         ) : (
           <div>

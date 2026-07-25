@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import DurationInput from "../components/DurationInput";
+import { secondsToMMSS } from "../lib/duration";
 
 interface TodayItem {
-  programId: string;
+  campExerciseId: string;
   campId: string;
   campName: string;
   exerciseId: string;
   exerciseName: string;
+  description: string | null;
   unit: "REPS" | "SECONDS";
   targetSets: number;
   targetMode: "FIXED" | "MAX";
@@ -37,7 +40,7 @@ export default function Today() {
   useEffect(load, []);
 
   function startEditing(item: TodayItem) {
-    setEditingId(item.programId);
+    setEditingId(item.campExerciseId);
     setSets(item.log?.setsDone ?? item.targetSets);
     setValue(item.log?.valueDone ?? item.targetValue ?? item.personalBest ?? 0);
   }
@@ -90,7 +93,7 @@ export default function Today() {
       {items?.length === 0 && (
         <div className="bg-surface border border-dashed border-border rounded-xl p-8 text-center">
           <p className="text-muted text-sm mb-3">
-            Aucun exercice programme pour aujourd'hui. Va configurer ton programme dans un de tes camps.
+            Aucun exercice programme pour aujourd'hui. Va voir tes camps pour rejoindre ou creer un camp.
           </p>
           <Link to="/camps" className="text-accent hover:text-accentSoft text-sm">
             Voir mes camps
@@ -101,11 +104,19 @@ export default function Today() {
       <div className="space-y-3">
         {items?.map((item) => {
           const unitLabel = item.unit === "REPS" ? "reps" : "sec";
-          const isEditing = editingId === item.programId;
+          const isEditing = editingId === item.campExerciseId;
+          const targetLabel =
+            item.targetMode === "MAX"
+              ? `${item.targetSets} serie${item.targetSets > 1 ? "s" : ""} a fond${
+                  item.personalBest
+                    ? ` (record : ${item.unit === "SECONDS" ? secondsToMMSS(item.personalBest) : item.personalBest} ${unitLabel})`
+                    : ""
+                }`
+              : `${item.targetSets} x ${item.unit === "SECONDS" && item.targetValue ? secondsToMMSS(item.targetValue) : item.targetValue} ${item.unit === "SECONDS" ? "" : unitLabel}`;
 
           return (
             <div
-              key={item.programId}
+              key={item.campExerciseId}
               className={`bg-surface border rounded-xl p-4 transition-colors ${
                 item.done ? "border-success/50" : "border-border"
               }`}
@@ -114,13 +125,9 @@ export default function Today() {
                 <div>
                   <p className="font-medium">{item.exerciseName}</p>
                   <p className="text-xs text-muted">
-                    {item.campName} · objectif{" "}
-                    {item.targetMode === "MAX"
-                      ? `${item.targetSets} serie${item.targetSets > 1 ? "s" : ""} a fond${
-                          item.personalBest ? ` (record : ${item.personalBest} ${unitLabel})` : ""
-                        }`
-                      : `${item.targetSets} x ${item.targetValue} ${unitLabel}`}
+                    {item.campName} · objectif {targetLabel}
                   </p>
+                  {item.description && <p className="text-xs text-muted italic mt-0.5">"{item.description}"</p>}
                 </div>
 
                 {!isEditing && (
@@ -141,7 +148,8 @@ export default function Today() {
 
               {item.done && item.log && (
                 <p className="text-xs text-muted mt-2">
-                  Realise : {item.log.setsDone} x {item.log.valueDone} {unitLabel}
+                  Realise : {item.log.setsDone} x{" "}
+                  {item.unit === "SECONDS" ? secondsToMMSS(item.log.valueDone) : `${item.log.valueDone} ${unitLabel}`}
                 </p>
               )}
 
@@ -159,13 +167,17 @@ export default function Today() {
                   </div>
                   <div>
                     <label className="block text-xs text-muted mb-1">{unitLabel} par serie</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={value}
-                      onChange={(e) => setValue(Number(e.target.value))}
-                      className="w-20 bg-surface border border-border rounded-md px-2 py-1"
-                    />
+                    {item.unit === "SECONDS" ? (
+                      <DurationInput totalSeconds={value} onChange={setValue} />
+                    ) : (
+                      <input
+                        type="number"
+                        min={0}
+                        value={value}
+                        onChange={(e) => setValue(Number(e.target.value))}
+                        className="w-20 bg-surface border border-border rounded-md px-2 py-1"
+                      />
+                    )}
                   </div>
                   <button
                     onClick={() => confirm(item)}

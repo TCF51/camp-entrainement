@@ -1,16 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import ProgramForm, { Program } from "../components/ProgramForm";
-import type { Exercise } from "../components/ExercisePicker";
+import { secondsToMMSS } from "../lib/duration";
+
+interface CampExerciseData extends Program {
+  exercise: { id: string; name: string; unit: "REPS" | "SECONDS"; description: string | null };
+}
 
 interface CampDetailData {
   id: string;
   name: string;
   code: string;
+  createdById: string;
   startDate: string | null;
   endDate: string | null;
-  exercises: { exercise: Exercise }[];
+  exercises: CampExerciseData[];
   members: { user: { id: string; name: string } }[];
 }
 
@@ -26,20 +32,19 @@ const RECURRENCE_LABEL: Record<string, (p: Program) => string> = {
 
 export default function CampDetail() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [camp, setCamp] = useState<CampDetailData | null>(null);
-  const [programs, setPrograms] = useState<Program[]>([]);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
 
   function load() {
     if (!id) return;
     api.get<CampDetailData>(`/camps/${id}`).then(setCamp);
-    api.get<Program[]>(`/programs?campId=${id}`).then(setPrograms);
   }
   useEffect(load, [id]);
 
   if (!camp) return <p className="text-muted">Chargement...</p>;
 
-  const programByExercise = new Map(programs.map((p) => [p.exerciseId, p]));
+  const isCoach = user?.id === camp.createdById;
 
   return (
     <div className="max-w-2xl">
@@ -63,25 +68,33 @@ export default function CampDetail() {
         </div>
       </div>
 
-      <h2 className="font-display uppercase tracking-wide text-lg mt-8 mb-3">Mes exercices dans ce camp</h2>
+      <Link
+        to={`/camps/${camp.id}/discussion`}
+        className="inline-block mt-2 text-sm text-accent hover:text-accentSoft"
+      >
+        💬 Discussion du camp
+      </Link>
+
+      <h2 className="font-display uppercase tracking-wide text-lg mt-8 mb-1">Exercices du camp</h2>
       <p className="text-muted text-sm mb-4">
-        Configure combien de series/repetitions tu veux faire, et a quelle frequence.
+        {isCoach
+          ? "En tant que createur du camp, tu definis la consigne (objectif, frequence) suivie par tous les membres."
+          : "Consignes definies par le createur du camp."}
       </p>
 
       <div className="space-y-3">
-        {camp.exercises.map(({ exercise }) => {
-          const program = programByExercise.get(exercise.id);
-          const isEditing = editingExerciseId === exercise.id;
+        {camp.exercises.map((ce) => {
+          const isEditing = editingExerciseId === ce.exercise.id;
 
           if (isEditing) {
             return (
               <ProgramForm
-                key={exercise.id}
+                key={ce.exercise.id}
                 campId={camp.id}
-                exerciseId={exercise.id}
-                exerciseName={exercise.name}
-                unit={exercise.unit}
-                existing={program}
+                exerciseId={ce.exercise.id}
+                exerciseName={ce.exercise.name}
+                unit={ce.exercise.unit}
+                existing={ce}
                 onSaved={() => {
                   setEditingExerciseId(null);
                   load();
@@ -91,39 +104,41 @@ export default function CampDetail() {
             );
           }
 
+          const unitLabel = ce.exercise.unit === "REPS" ? "reps" : "";
+          const valueLabel =
+            ce.exercise.unit === "SECONDS" && ce.targetValue != null
+              ? secondsToMMSS(ce.targetValue)
+              : `${ce.targetValue} ${unitLabel}`;
+
           return (
-            <div
-              key={exercise.id}
-              className="bg-surface border border-border rounded-lg p-4 flex items-center justify-between flex-wrap gap-3"
-            >
-              <div>
-                <p className="font-medium">{exercise.name}</p>
-                {program ? (
+            <div key={ce.exercise.id} className="bg-surface border border-border rounded-lg p-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="font-medium">{ce.exercise.name}</p>
                   <p className="text-sm text-muted">
-                    {program.targetMode === "MAX"
-                      ? `${program.targetSets} serie${program.targetSets > 1 ? "s" : ""} a fond`
-                      : `${program.targetSets} x ${program.targetValue} ${exercise.unit === "REPS" ? "reps" : "sec"}`}{" "}
-                    · {RECURRENCE_LABEL[program.recurrenceType](program)}
+                    {ce.targetMode === "MAX"
+                      ? `${ce.targetSets} serie${ce.targetSets > 1 ? "s" : ""} a fond`
+                      : `${ce.targetSets} x ${valueLabel}`}{" "}
+                    · {RECURRENCE_LABEL[ce.recurrenceType](ce)}
                   </p>
-                ) : (
-                  <p className="text-sm text-muted italic">Pas encore configure</p>
-                )}
-              </div>
-              <div className="flex gap-3 items-center">
-                {program && (
+                  {ce.description && <p className="text-xs text-muted mt-1 italic">"{ce.description}"</p>}
+                </div>
+                <div className="flex gap-3 items-center shrink-0">
                   <Link
-                    to={`/camps/${camp.id}/progression/${exercise.id}`}
+                    to={`/camps/${camp.id}/progression/${ce.exercise.id}`}
                     className="text-sm text-accent hover:text-accentSoft"
                   >
                     Progression
                   </Link>
-                )}
-                <button
-                  onClick={() => setEditingExerciseId(exercise.id)}
-                  className="text-sm bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-3 py-1.5"
-                >
-                  {program ? "Modifier" : "Configurer"}
-                </button>
+                  {isCoach && (
+                    <button
+                      onClick={() => setEditingExerciseId(ce.exercise.id)}
+                      className="text-sm bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-3 py-1.5"
+                    >
+                      Modifier
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );

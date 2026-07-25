@@ -57,7 +57,7 @@ export default function CreateCamp() {
           onClick={() => navigate(`/camps/${createdId}`)}
           className="w-full bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md py-2"
         >
-          Configurer mon programme
+          Definir les consignes des exercices
         </button>
       </div>
     );
@@ -67,8 +67,8 @@ export default function CreateCamp() {
     <div className="max-w-xl">
       <h1 className="font-display text-3xl uppercase tracking-wide mb-1">Nouveau camp</h1>
       <p className="text-muted text-sm mb-6">
-        Choisis un nom et les exercices qui feront partie de ce camp. Chaque membre pourra ensuite definir son
-        propre nombre de series/repetitions et sa propre frequence.
+        Choisis un nom et les exercices qui feront partie de ce camp. En tant que createur, tu definiras ensuite
+        la consigne (objectif, frequence) suivie par tous les membres.
       </p>
 
       <form onSubmit={onSubmit} className="space-y-5">
