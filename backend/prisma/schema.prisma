@@ -1,0 +1,143 @@
+// Schema Prisma - Application de suivi de camps d'entrainement
+// Par defaut : SQLite (aucune installation requise).
+// Pour passer sur PostgreSQL en production, remplacer le provider ci-dessous
+// par "postgresql" et adapter DATABASE_URL dans .env
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum ExerciseUnit {
+  REPS    // exercice compte en repetitions (ex: pompes)
+  SECONDS // exercice compte en duree tenue (ex: gainage, chaise)
+}
+
+enum RecurrenceType {
+  DAILY         // tous les jours
+  WEEKLY        // certains jours de la semaine
+  EVERY_N_DAYS  // tous les X jours
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  name           String
+  weightKg       Float?
+  heightCm       Float?
+  birthDate      DateTime?
+  sex            String?  // "F" | "M" | "AUTRE" | null, libre / optionnel
+  createdAt      DateTime @default(now())
+
+  memberships    CampMembership[]
+  createdCamps   Camp[]            @relation("CampCreator")
+  createdExos    Exercise[]        @relation("ExerciseCreator")
+  programs       UserProgram[]
+  logs           ExerciseLog[]
+  subscriptions  PushSubscription[]
+}
+
+model Exercise {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  unit        ExerciseUnit
+  isCustom    Boolean      @default(false)
+  createdById String?
+  createdBy   User?        @relation("ExerciseCreator", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+
+  campExercises CampExercise[]
+  programs      UserProgram[]
+  logs          ExerciseLog[]
+}
+
+model Camp {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  createdById String
+  createdBy   User     @relation("CampCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  exercises CampExercise[]
+  members   CampMembership[]
+  programs  UserProgram[]
+  logs      ExerciseLog[]
+}
+
+model CampExercise {
+  id         String   @id @default(cuid())
+  campId     String
+  exerciseId String
+  camp       Camp     @relation(fields: [campId], references: [id], onDelete: Cascade)
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+
+  @@unique([campId, exerciseId])
+}
+
+model CampMembership {
+  id       String   @id @default(cuid())
+  userId   String
+  campId   String
+  joinedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  camp     Camp     @relation(fields: [campId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, campId])
+}
+
+model UserProgram {
+  id             String         @id @default(cuid())
+  userId         String
+  campId         String
+  exerciseId     String
+  targetSets     Int
+  targetValue    Int            // nombre de repetitions OU nombre de secondes (voir Exercise.unit)
+  recurrenceType RecurrenceType
+  daysOfWeek     String?        // JSON array ex: "[1,3,5]" (0=dimanche ... 6=samedi), utilise si WEEKLY
+  intervalDays   Int?           // utilise si EVERY_N_DAYS
+  startDate      DateTime       @default(now())
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  camp     Camp     @relation(fields: [campId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+
+  @@unique([userId, campId, exerciseId])
+}
+
+model ExerciseLog {
+  id         String   @id @default(cuid())
+  userId     String
+  campId     String
+  exerciseId String
+  date       DateTime // jour concerne (heure normalisee a minuit)
+  setsDone   Int
+  valueDone  Int      // repetitions ou secondes realisees (moyenne/estimation par serie, cf notes)
+  completed  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  camp     Camp     @relation(fields: [campId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+
+  @@unique([userId, campId, exerciseId, date])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

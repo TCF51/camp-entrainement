@@ -1,0 +1,9 @@
+{
+  "name": "Camp d'Entrainement",
+  "short_name": "Camp",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#15171B",
+  "theme_color": "#15171B",
+  "icons": []
+}
