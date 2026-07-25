@@ -33,9 +33,9 @@ export default function Register() {
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2 mb-8 justify-center">
           <span className="w-9 h-9 rounded bg-accent flex items-center justify-center font-display font-bold text-bg text-lg">
-            C
+            G
           </span>
-          <span className="font-display text-xl tracking-wide uppercase">Camp d'Entrainement</span>
+          <span className="font-display text-xl tracking-wide uppercase">GoTeam</span>
         </div>
 
         <div className="bg-surface border border-border rounded-xl p-6">

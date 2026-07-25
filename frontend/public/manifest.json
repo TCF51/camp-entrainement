@@ -1,9 +1,9 @@
 {
-  "name": "Camp d'Entrainement",
-  "short_name": "Camp",
+  "name": "GoTeam",
+  "short_name": "GoTeam",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#15171B",
-  "theme_color": "#15171B",
+  "background_color": "#F2FAFB",
+  "theme_color": "#1B8CA3",
   "icons": []
 }

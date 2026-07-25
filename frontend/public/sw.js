@@ -2,7 +2,7 @@
 // et les affiche, meme quand l'onglet de l'application est ferme.
 
 self.addEventListener("push", (event) => {
-  let data = { title: "Camp d'Entrainement", body: "N'oublie pas ta seance !" };
+  let data = { title: "GoTeam", body: "N'oublie pas ta seance !" };
   try {
     if (event.data) data = event.data.json();
   } catch {

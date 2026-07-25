@@ -19,6 +19,7 @@ export default function ExercisePicker({ selected, onChange }: Props) {
   const [search, setSearch] = useState("");
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customName, setCustomName] = useState("");
+  const [customDescription, setCustomDescription] = useState("");
   const [customUnit, setCustomUnit] = useState<"REPS" | "SECONDS">("REPS");
 
   function load() {
@@ -38,10 +39,15 @@ export default function ExercisePicker({ selected, onChange }: Props) {
 
   async function addCustom() {
     if (!customName.trim()) return;
-    const created = await api.post<Exercise>("/exercises", { name: customName.trim(), unit: customUnit });
+    const created = await api.post<Exercise>("/exercises", {
+      name: customName.trim(),
+      description: customDescription.trim() || undefined,
+      unit: customUnit,
+    });
     setExercises((prev) => [...prev, created]);
     onChange([...selected, created.id]);
     setCustomName("");
+    setCustomDescription("");
     setShowCustomForm(false);
   }
 
@@ -72,6 +78,7 @@ export default function ExercisePicker({ selected, onChange }: Props) {
                   {exo.unit === "REPS" ? "reps" : "sec"}
                 </span>
               </div>
+              {exo.description && <p className="text-xs text-muted mt-0.5 truncate">{exo.description}</p>}
             </button>
           );
         })}
@@ -92,6 +99,15 @@ export default function ExercisePicker({ selected, onChange }: Props) {
             <input
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
+              className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div className="w-full">
+            <label className="block text-xs text-muted mb-1">Description (optionnel)</label>
+            <input
+              value={customDescription}
+              onChange={(e) => setCustomDescription(e.target.value)}
+              placeholder="Ex : bras tendus, dos droit..."
               className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-sm"
             />
           </div>

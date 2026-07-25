@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html,
@@ -13,11 +13,11 @@ body,
 }
 
 body {
-  background-color: #15171b;
+  background-color: #f2fafb;
   background-image:
-    radial-gradient(circle at 10% 0%, rgba(255, 75, 46, 0.08), transparent 40%),
-    radial-gradient(circle at 90% 100%, rgba(67, 209, 122, 0.06), transparent 45%);
-  color: #f4f2ec;
+    radial-gradient(circle at 10% 0%, rgba(27, 140, 163, 0.08), transparent 40%),
+    radial-gradient(circle at 90% 100%, rgba(30, 158, 107, 0.05), transparent 45%);
+  color: #152b31;
   font-family: "Inter", sans-serif;
 }
 
@@ -35,7 +35,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid #ff4b2e;
+  outline: 2px solid #1b8ca3;
   outline-offset: 2px;
 }
 
@@ -53,16 +53,16 @@ textarea:focus-visible {
   transition: transform 120ms ease, background-color 150ms ease;
 }
 .stamp-cell.done {
-  background-color: rgba(67, 209, 122, 0.18);
-  border: 1px solid rgba(67, 209, 122, 0.55);
+  background-color: rgba(30, 158, 107, 0.16);
+  border: 1px solid rgba(30, 158, 107, 0.55);
 }
 .stamp-cell.missed {
-  background-color: rgba(255, 75, 46, 0.1);
-  border: 1px solid rgba(255, 75, 46, 0.25);
+  background-color: rgba(224, 90, 60, 0.1);
+  border: 1px solid rgba(224, 90, 60, 0.3);
 }
 .stamp-cell.future {
   background-color: transparent;
-  border: 1px dashed #2e323a;
+  border: 1px dashed #d5e6ea;
 }
 
 .stamp-btn {

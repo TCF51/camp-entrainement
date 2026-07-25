@@ -1,4 +1,4 @@
-# Camp d'Entrainement
+# GoTeam
 
 Application web de suivi de séances d'exercices, en groupe. Chacun crée un compte, rejoint ou crée un
 « camp d'entraînement » (un ensemble d'exercices partagé, avec un code d'invitation), puis définit son

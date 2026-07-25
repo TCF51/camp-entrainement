@@ -4,15 +4,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: "#15171B",
-        surface: "#1D2025",
-        surface2: "#262A31",
-        border: "#2E323A",
-        accent: "#FF4B2E",
-        accentSoft: "#FF7A5C",
-        success: "#43D17A",
-        text: "#F4F2EC",
-        muted: "#8B909A",
+        bg: "#F2FAFB",
+        surface: "#FFFFFF",
+        surface2: "#EAF3F6",
+        border: "#D5E6EA",
+        accent: "#1B8CA3",
+        accentSoft: "#3FA9BE",
+        success: "#1E9E6B",
+        text: "#152B31",
+        muted: "#5C7A81",
       },
       fontFamily: {
         display: ["Oswald", "sans-serif"],
