@@ -10,6 +10,8 @@ router.use(requireAuth);
 const createCampSchema = z.object({
   name: z.string().min(1, "Le nom du camp est requis."),
   exerciseIds: z.array(z.string()).min(1, "Selectionne au moins un exercice."),
+  startDate: z.string().optional().nullable(), // format ISO "YYYY-MM-DD"
+  endDate: z.string().optional().nullable(),
 });
 
 // Cree un camp : choix d'un ensemble d'exercices, generation d'un code d'invitation.
@@ -19,7 +21,11 @@ router.post("/", async (req: AuthRequest, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
-  const { name, exerciseIds } = parsed.data;
+  const { name, exerciseIds, startDate, endDate } = parsed.data;
+
+  if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+    return res.status(400).json({ error: "La date de fin doit etre apres la date de debut." });
+  }
 
   // On genere un code unique (tres faible probabilite de collision, on retente si besoin)
   let code = generateCampCode();
@@ -34,6 +40,8 @@ router.post("/", async (req: AuthRequest, res) => {
       name,
       code,
       createdById: req.userId!,
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
       exercises: { create: exerciseIds.map((exerciseId) => ({ exerciseId })) },
       members: { create: [{ userId: req.userId! }] },
     },

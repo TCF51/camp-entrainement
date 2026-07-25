@@ -1,7 +1,16 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api, ApiError } from "../api/client";
 import { enablePushNotifications } from "../lib/push";
+
+interface Badge {
+  key: string;
+  name: string;
+  description: string;
+  emoji: string;
+  earned: boolean;
+  earnedAt: string | null;
+}
 
 export default function Profile() {
   const { user, refreshUser } = useAuth();
@@ -12,6 +21,11 @@ export default function Profile() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [badges, setBadges] = useState<Badge[] | null>(null);
+
+  useEffect(() => {
+    api.get<Badge[]>("/badges").then(setBadges);
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -135,6 +149,27 @@ export default function Profile() {
         >
           Activer les notifications
         </button>
+      </div>
+      <div className="bg-surface border border-border rounded-xl p-6 mt-6">
+        <h2 className="font-display text-lg uppercase tracking-wide mb-1">Mes badges</h2>
+        <p className="text-muted text-sm mb-4">
+          Bases sur ta regularite personnelle uniquement, pas de comparaison avec les autres membres.
+        </p>
+        {badges === null && <p className="text-muted text-sm">Chargement...</p>}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {badges?.map((b) => (
+            <div
+              key={b.key}
+              title={b.description}
+              className={`rounded-lg p-3 text-center border ${
+                b.earned ? "bg-accent/10 border-accent" : "bg-surface2 border-border opacity-40"
+              }`}
+            >
+              <p className="text-2xl mb-1">{b.emoji}</p>
+              <p className="text-xs font-medium">{b.name}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

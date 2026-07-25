@@ -11,6 +11,7 @@ import todayRoutes from "./routes/today";
 import logRoutes from "./routes/logs";
 import progressRoutes from "./routes/progress";
 import pushRoutes from "./routes/push";
+import badgeRoutes from "./routes/badges";
 import { initPush, scheduleReminders } from "./services/notifications";
 
 const app = express();
@@ -29,6 +30,7 @@ app.use("/api/today", todayRoutes);
 app.use("/api/logs", logRoutes);
 app.use("/api/progress", progressRoutes);
 app.use("/api/push", pushRoutes);
+app.use("/api/badges", badgeRoutes);
 
 // Gestion d'erreur generique (evite qu'une exception fasse planter le process)
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

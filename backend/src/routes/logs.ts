@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AuthRequest, requireAuth } from "../middleware/auth";
 import { toDayStart } from "../utils/recurrence";
+import { checkAndAwardBadges } from "../utils/badges";
 
 const router = Router();
 router.use(requireAuth);
@@ -37,7 +38,9 @@ router.post("/", async (req: AuthRequest, res) => {
     update: { setsDone, valueDone, completed: true },
   });
 
-  res.status(201).json(log);
+  const newBadges = await checkAndAwardBadges(req.userId!);
+
+  res.status(201).json({ log, newBadges });
 });
 
 // Permet d'annuler un log (ex: coche par erreur)

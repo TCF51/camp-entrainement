@@ -12,6 +12,7 @@ import JoinCamp from "./pages/JoinCamp";
 import CampDetail from "./pages/CampDetail";
 import Today from "./pages/Today";
 import Progress from "./pages/Progress";
+import ExerciseRepository from "./pages/ExerciseRepository";
 
 function Private({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -33,6 +34,7 @@ export default function App() {
       <Route path="/camps/rejoindre" element={<Private><JoinCamp /></Private>} />
       <Route path="/camps/:id" element={<Private><CampDetail /></Private>} />
       <Route path="/camps/:id/progression/:exerciseId" element={<Private><Progress /></Private>} />
+      <Route path="/exercices" element={<Private><ExerciseRepository /></Private>} />
 
       <Route path="*" element={<Navigate to="/aujourdhui" replace />} />
     </Routes>

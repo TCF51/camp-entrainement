@@ -7,6 +7,8 @@ export default function CreateCamp() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
@@ -19,9 +21,18 @@ export default function CreateCamp() {
       setError("Selectionne au moins un exercice.");
       return;
     }
+    if (startDate && endDate && endDate < startDate) {
+      setError("La date de fin doit etre apres la date de debut.");
+      return;
+    }
     setBusy(true);
     try {
-      const camp = await api.post<{ id: string; code: string }>("/camps", { name, exerciseIds: selected });
+      const camp = await api.post<{ id: string; code: string }>("/camps", {
+        name,
+        exerciseIds: selected,
+        startDate: startDate || null,
+        endDate: endDate || null,
+      });
       setCreatedCode(camp.code);
       setCreatedId(camp.id);
     } catch (err) {
@@ -78,6 +89,33 @@ export default function CreateCamp() {
         <div>
           <label className="block text-sm text-muted mb-2">Exercices du camp</label>
           <ExercisePicker selected={selected} onChange={setSelected} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-muted mb-1" htmlFor="startDate">
+              Date de debut (optionnel)
+            </label>
+            <input
+              id="startDate"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full bg-surface2 border border-border rounded-md px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-muted mb-1" htmlFor="endDate">
+              Date de fin (optionnel)
+            </label>
+            <input
+              id="endDate"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full bg-surface2 border border-border rounded-md px-3 py-2"
+            />
+          </div>
         </div>
 
         {error && <p className="text-sm text-accent">{error}</p>}

@@ -29,7 +29,7 @@ export default function Dashboard() {
             to="/camps/rejoindre"
             className="bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-4 py-2 text-sm"
           >
-            Rejoindre avec un code
+            Integrer un camp
           </Link>
           <Link
             to="/camps/creer"

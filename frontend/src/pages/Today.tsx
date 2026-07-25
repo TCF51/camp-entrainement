@@ -10,9 +10,18 @@ interface TodayItem {
   exerciseName: string;
   unit: "REPS" | "SECONDS";
   targetSets: number;
-  targetValue: number;
+  targetMode: "FIXED" | "MAX";
+  targetValue: number | null;
+  personalBest: number | null;
   done: boolean;
   log: { setsDone: number; valueDone: number } | null;
+}
+
+interface NewBadge {
+  key: string;
+  name: string;
+  description: string;
+  emoji: string;
 }
 
 export default function Today() {
@@ -20,6 +29,7 @@ export default function Today() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sets, setSets] = useState(0);
   const [value, setValue] = useState(0);
+  const [celebrating, setCelebrating] = useState<NewBadge[]>([]);
 
   function load() {
     api.get<{ date: string; items: TodayItem[] }>("/today").then((res) => setItems(res.items));
@@ -29,13 +39,19 @@ export default function Today() {
   function startEditing(item: TodayItem) {
     setEditingId(item.programId);
     setSets(item.log?.setsDone ?? item.targetSets);
-    setValue(item.log?.valueDone ?? item.targetValue);
+    setValue(item.log?.valueDone ?? item.targetValue ?? item.personalBest ?? 0);
   }
 
   async function confirm(item: TodayItem) {
-    await api.post("/logs", { campId: item.campId, exerciseId: item.exerciseId, setsDone: sets, valueDone: value });
+    const res = await api.post<{ newBadges: NewBadge[] }>("/logs", {
+      campId: item.campId,
+      exerciseId: item.exerciseId,
+      setsDone: sets,
+      valueDone: value,
+    });
     setEditingId(null);
     load();
+    if (res.newBadges?.length) setCelebrating(res.newBadges);
   }
 
   async function undo(item: TodayItem) {
@@ -48,6 +64,20 @@ export default function Today() {
 
   return (
     <div className="max-w-xl">
+      {celebrating.length > 0 && (
+        <div className="bg-accent/10 border border-accent rounded-xl p-4 mb-5">
+          {celebrating.map((b) => (
+            <p key={b.key} className="text-sm">
+              <span className="text-xl mr-2">{b.emoji}</span>
+              Nouveau badge : <span className="font-semibold">{b.name}</span> — {b.description}
+            </p>
+          ))}
+          <button onClick={() => setCelebrating([])} className="text-xs text-muted hover:text-text mt-2">
+            Fermer
+          </button>
+        </div>
+      )}
+
       <h1 className="font-display text-3xl uppercase tracking-wide mb-1">Aujourd'hui</h1>
       <p className="text-muted text-sm mb-6">
         {total === 0
@@ -84,7 +114,12 @@ export default function Today() {
                 <div>
                   <p className="font-medium">{item.exerciseName}</p>
                   <p className="text-xs text-muted">
-                    {item.campName} · objectif {item.targetSets} x {item.targetValue} {unitLabel}
+                    {item.campName} · objectif{" "}
+                    {item.targetMode === "MAX"
+                      ? `${item.targetSets} serie${item.targetSets > 1 ? "s" : ""} a fond${
+                          item.personalBest ? ` (record : ${item.personalBest} ${unitLabel})` : ""
+                        }`
+                      : `${item.targetSets} x ${item.targetValue} ${unitLabel}`}
                   </p>
                 </div>
 

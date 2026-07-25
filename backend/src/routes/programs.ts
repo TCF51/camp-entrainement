@@ -12,13 +12,18 @@ const recurrenceSchema = z.discriminatedUnion("recurrenceType", [
   z.object({ recurrenceType: z.literal("EVERY_N_DAYS"), intervalDays: z.number().min(1) }),
 ]);
 
+const targetSchema = z.discriminatedUnion("targetMode", [
+  z.object({ targetMode: z.literal("FIXED"), targetValue: z.number().min(1) }),
+  z.object({ targetMode: z.literal("MAX"), targetValue: z.number().min(1).optional() }),
+]);
+
 const upsertSchema = z
   .object({
     campId: z.string(),
     exerciseId: z.string(),
     targetSets: z.number().min(1),
-    targetValue: z.number().min(1),
   })
+  .and(targetSchema)
   .and(recurrenceSchema);
 
 // Cree ou met a jour le programme personnel d'un utilisateur pour un exercice donne d'un camp
@@ -49,14 +54,16 @@ router.post("/", async (req: AuthRequest, res) => {
       campId: data.campId,
       exerciseId: data.exerciseId,
       targetSets: data.targetSets,
-      targetValue: data.targetValue,
+      targetMode: data.targetMode,
+      targetValue: data.targetMode === "FIXED" ? data.targetValue : data.targetValue ?? null,
       recurrenceType: data.recurrenceType,
       daysOfWeek: data.recurrenceType === "WEEKLY" ? JSON.stringify(data.daysOfWeek) : null,
       intervalDays: data.recurrenceType === "EVERY_N_DAYS" ? data.intervalDays : null,
     },
     update: {
       targetSets: data.targetSets,
-      targetValue: data.targetValue,
+      targetMode: data.targetMode,
+      targetValue: data.targetMode === "FIXED" ? data.targetValue : data.targetValue ?? null,
       recurrenceType: data.recurrenceType,
       daysOfWeek: data.recurrenceType === "WEEKLY" ? JSON.stringify(data.daysOfWeek) : null,
       intervalDays: data.recurrenceType === "EVERY_N_DAYS" ? data.intervalDays : null,

@@ -16,15 +16,34 @@ router.get("/", async (req: AuthRequest, res) => {
     include: { exercise: true, camp: true },
   });
 
-  const dueToday = programs.filter((p) => isDueOnDate(p, today));
+  // On ne propose que les programmes dont le camp est en cours (entre sa date de debut et de fin, si definies)
+  const withinCampDates = programs.filter((p) => {
+    if (p.camp.startDate && today.getTime() < toDayStart(p.camp.startDate).getTime()) return false;
+    if (p.camp.endDate && today.getTime() > toDayStart(p.camp.endDate).getTime()) return false;
+    return true;
+  });
+
+  const dueToday = withinCampDates.filter((p) => isDueOnDate(p, today));
 
   const logsToday = await prisma.exerciseLog.findMany({
     where: { userId: req.userId, date: today },
   });
   const logByProgram = new Map(logsToday.map((l) => [`${l.campId}:${l.exerciseId}`, l]));
 
+  // Pour les exercices en mode "MAX", on va chercher le record personnel precedent a titre de reference
+  const maxPrograms = dueToday.filter((p) => p.targetMode === "MAX");
+  const bestByProgram = new Map<string, number>();
+  for (const p of maxPrograms) {
+    const best = await prisma.exerciseLog.findFirst({
+      where: { userId: req.userId, campId: p.campId, exerciseId: p.exerciseId },
+      orderBy: { valueDone: "desc" },
+    });
+    if (best) bestByProgram.set(`${p.campId}:${p.exerciseId}`, best.valueDone);
+  }
+
   const result = dueToday.map((p) => {
-    const log = logByProgram.get(`${p.campId}:${p.exerciseId}`);
+    const key = `${p.campId}:${p.exerciseId}`;
+    const log = logByProgram.get(key);
     return {
       programId: p.id,
       campId: p.campId,
@@ -33,7 +52,9 @@ router.get("/", async (req: AuthRequest, res) => {
       exerciseName: p.exercise.name,
       unit: p.exercise.unit,
       targetSets: p.targetSets,
+      targetMode: p.targetMode,
       targetValue: p.targetValue,
+      personalBest: bestByProgram.get(key) ?? null,
       done: !!log,
       log: log ? { setsDone: log.setsDone, valueDone: log.valueDone } : null,
     };

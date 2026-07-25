@@ -13,7 +13,8 @@ datasource db {
 }
 
 // Note : pas d'enum Prisma ici (ExerciseUnit / RecurrenceType) car SQLite ne supporte pas
-// les enums natifs. Les valeurs autorisees sont validees cote API avec zod.
+// les enums natifs. Les valeurs autorisees ("REPS"/"SECONDS", "DAILY"/"WEEKLY"/"EVERY_N_DAYS")
+// sont validees cote API avec zod (voir src/routes/exercises.ts et src/routes/programs.ts).
 
 model User {
   id             String   @id @default(cuid())
@@ -32,6 +33,7 @@ model User {
   programs       UserProgram[]
   logs           ExerciseLog[]
   subscriptions  PushSubscription[]
+  badges         UserBadge[]
 }
 
 model Exercise {
@@ -50,12 +52,14 @@ model Exercise {
 }
 
 model Camp {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
-  code        String   @unique
+  code        String    @unique
   createdById String
-  createdBy   User     @relation("CampCreator", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
+  createdBy   User      @relation("CampCreator", fields: [createdById], references: [id])
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
 
   exercises CampExercise[]
   members   CampMembership[]
@@ -90,7 +94,8 @@ model UserProgram {
   campId         String
   exerciseId     String
   targetSets     Int
-  targetValue    Int            // nombre de repetitions OU nombre de secondes (voir Exercise.unit)
+  targetMode     String         @default("FIXED") // "FIXED" (objectif chiffre) ou "MAX" (a fond, sans cible fixe)
+  targetValue    Int?           // nombre de repetitions OU de secondes vise (voir Exercise.unit) ; inutilise si targetMode = MAX
   recurrenceType String         // "DAILY" | "WEEKLY" | "EVERY_N_DAYS"
   daysOfWeek     String?        // JSON array ex: "[1,3,5]" (0=dimanche ... 6=samedi), utilise si WEEKLY
   intervalDays   Int?           // utilise si EVERY_N_DAYS
@@ -132,4 +137,15 @@ model PushSubscription {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeKey  String   // identifiant du badge, voir src/utils/badges.ts pour le catalogue
+  earnedAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeKey])
 }

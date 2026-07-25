@@ -5,7 +5,8 @@ export interface Program {
   id: string;
   exerciseId: string;
   targetSets: number;
-  targetValue: number;
+  targetMode: "FIXED" | "MAX";
+  targetValue: number | null;
   recurrenceType: "DAILY" | "WEEKLY" | "EVERY_N_DAYS";
   daysOfWeek: string | null;
   intervalDays: number | null;
@@ -33,6 +34,7 @@ const WEEKDAYS = [
 
 export default function ProgramForm({ campId, exerciseId, exerciseName, unit, existing, onSaved, onCancel }: Props) {
   const [targetSets, setTargetSets] = useState(existing?.targetSets ?? 3);
+  const [targetMode, setTargetMode] = useState<"FIXED" | "MAX">(existing?.targetMode ?? "FIXED");
   const [targetValue, setTargetValue] = useState(existing?.targetValue ?? (unit === "REPS" ? 10 : 30));
   const [recurrenceType, setRecurrenceType] = useState<"DAILY" | "WEEKLY" | "EVERY_N_DAYS">(
     existing?.recurrenceType ?? "DAILY"
@@ -60,9 +62,10 @@ export default function ProgramForm({ campId, exerciseId, exerciseName, unit, ex
         campId,
         exerciseId,
         targetSets,
-        targetValue,
+        targetMode,
         recurrenceType,
       };
+      if (targetMode === "FIXED") payload.targetValue = targetValue;
       if (recurrenceType === "WEEKLY") payload.daysOfWeek = daysOfWeek;
       if (recurrenceType === "EVERY_N_DAYS") payload.intervalDays = intervalDays;
 
@@ -81,6 +84,30 @@ export default function ProgramForm({ campId, exerciseId, exerciseName, unit, ex
     <div className="bg-surface2 border border-border rounded-lg p-4 space-y-4">
       <h3 className="font-display uppercase tracking-wide text-sm">{exerciseName}</h3>
 
+      <div>
+        <label className="block text-xs text-muted mb-1">Type d'objectif</label>
+        <div className="flex gap-1.5 mb-3">
+          <button
+            type="button"
+            onClick={() => setTargetMode("FIXED")}
+            className={`px-3 py-1.5 rounded text-xs border ${
+              targetMode === "FIXED" ? "bg-accent/20 border-accent text-text" : "bg-surface border-border text-muted"
+            }`}
+          >
+            Objectif chiffre
+          </button>
+          <button
+            type="button"
+            onClick={() => setTargetMode("MAX")}
+            className={`px-3 py-1.5 rounded text-xs border ${
+              targetMode === "MAX" ? "bg-accent/20 border-accent text-text" : "bg-surface border-border text-muted"
+            }`}
+          >
+            A fond (record perso)
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs text-muted mb-1">Nombre de series</label>
@@ -92,16 +119,25 @@ export default function ProgramForm({ campId, exerciseId, exerciseName, unit, ex
             className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-sm"
           />
         </div>
-        <div>
-          <label className="block text-xs text-muted mb-1">{unitLabel} par serie</label>
-          <input
-            type="number"
-            min={1}
-            value={targetValue}
-            onChange={(e) => setTargetValue(Number(e.target.value))}
-            className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-sm"
-          />
-        </div>
+        {targetMode === "FIXED" ? (
+          <div>
+            <label className="block text-xs text-muted mb-1">{unitLabel} par serie</label>
+            <input
+              type="number"
+              min={1}
+              value={targetValue}
+              onChange={(e) => setTargetValue(Number(e.target.value))}
+              className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-sm"
+            />
+          </div>
+        ) : (
+          <div>
+            <label className="block text-xs text-muted mb-1">{unitLabel} par serie</label>
+            <div className="w-full bg-surface border border-dashed border-border rounded-md px-2 py-1.5 text-sm text-muted">
+              A fond, sans limite fixee
+            </div>
+          </div>
+        )}
       </div>
 
       <div>

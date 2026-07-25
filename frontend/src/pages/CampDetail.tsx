@@ -8,6 +8,8 @@ interface CampDetailData {
   id: string;
   name: string;
   code: string;
+  startDate: string | null;
+  endDate: string | null;
   exercises: { exercise: Exercise }[];
   members: { user: { id: string; name: string } }[];
 }
@@ -48,6 +50,12 @@ export default function CampDetail() {
             {camp.members.length} membre{camp.members.length > 1 ? "s" : ""} :{" "}
             {camp.members.map((m) => m.user.name).join(", ")}
           </p>
+          {(camp.startDate || camp.endDate) && (
+            <p className="text-muted text-xs mt-1">
+              {camp.startDate ? `Du ${new Date(camp.startDate).toLocaleDateString("fr-FR")}` : "Sans date de debut"}
+              {camp.endDate ? ` au ${new Date(camp.endDate).toLocaleDateString("fr-FR")}` : ""}
+            </p>
+          )}
         </div>
         <div className="bg-surface border border-border rounded-md px-3 py-2 text-center">
           <p className="text-[10px] uppercase tracking-widest text-muted">Code</p>
@@ -92,8 +100,10 @@ export default function CampDetail() {
                 <p className="font-medium">{exercise.name}</p>
                 {program ? (
                   <p className="text-sm text-muted">
-                    {program.targetSets} x {program.targetValue} {exercise.unit === "REPS" ? "reps" : "sec"} ·{" "}
-                    {RECURRENCE_LABEL[program.recurrenceType](program)}
+                    {program.targetMode === "MAX"
+                      ? `${program.targetSets} serie${program.targetSets > 1 ? "s" : ""} a fond`
+                      : `${program.targetSets} x ${program.targetValue} ${exercise.unit === "REPS" ? "reps" : "sec"}`}{" "}
+                    · {RECURRENCE_LABEL[program.recurrenceType](program)}
                   </p>
                 ) : (
                   <p className="text-sm text-muted italic">Pas encore configure</p>
