@@ -22,14 +22,14 @@ export default function Dashboard() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="font-display text-3xl uppercase tracking-wide mb-1">Mes camps</h1>
-          <p className="text-muted text-sm">Les groupes d'entrainement auxquels tu participes.</p>
+          <p className="text-muted text-sm">Les groupes d'entraînement auxquels tu participes.</p>
         </div>
         <div className="flex gap-2">
           <Link
             to="/camps/rejoindre"
             className="bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-4 py-2 text-sm"
           >
-            Integrer un camp
+            Intégrer un camp
           </Link>
           <Link
             to="/camps/creer"
@@ -46,7 +46,7 @@ export default function Dashboard() {
         <div className="bg-surface border border-dashed border-border rounded-xl p-8 text-center">
           <p className="font-display text-xl uppercase tracking-wide mb-2">Aucun camp pour l'instant</p>
           <p className="text-muted text-sm mb-5">
-            Cree ton premier camp d'entrainement, ou rejoins celui de quelqu'un d'autre avec son code.
+            Crée ton premier camp d'entraînement, ou rejoins celui de quelqu'un d'autre avec son code.
           </p>
         </div>
       )}

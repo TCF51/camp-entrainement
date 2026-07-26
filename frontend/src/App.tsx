@@ -40,7 +40,7 @@ export default function App() {
       <Route path="/aujourdhui" element={<Private><Today /></Private>} />
       <Route path="/profil" element={<Private><Profile /></Private>} />
       <Route path="/camps" element={<Private><Dashboard /></Private>} />
-      <Route path="/camps/créer" element={<Private><CreateCamp /></Private>} />
+      <Route path="/camps/creer" element={<Private><CreateCamp /></Private>} />
       <Route path="/camps/rejoindre" element={<Private><JoinCamp /></Private>} />
       <Route path="/camps/:id" element={<Private><CampDetail /></Private>} />
       <Route path="/camps/:id/progression/:exerciseId" element={<Private><Progress /></Private>} />
