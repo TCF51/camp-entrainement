@@ -2,13 +2,26 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
 
-const navItems = [
+const desktopNavItems = [
   { to: "/aujourdhui", label: "Aujourd'hui" },
   { to: "/camps", label: "Mes camps" },
   { to: "/chrono", label: "Chrono" },
   { to: "/exercices", label: "Exercices" },
   { to: "/messages", label: "Messages" },
+  { to: "/historique", label: "Historique" },
   { to: "/profil", label: "Profil" },
+];
+
+// Sur mobile, la barre du bas ne montre que l'essentiel : le Chrono a sa propre bulle
+// centrale, les autres onglets (Exercices, Historique) restent accessibles depuis le menu
+// complet sur ordinateur, ou via des liens dans "Mes camps" / "Profil" sur mobile.
+const mobileLeftItems = [
+  { to: "/aujourdhui", label: "Aujourd'hui", icon: "📅" },
+  { to: "/camps", label: "Camps", icon: "🏕️" },
+];
+const mobileRightItems = [
+  { to: "/messages", label: "Messages", icon: "💬" },
+  { to: "/profil", label: "Profil", icon: "👤" },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -24,7 +37,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             <span className="font-display text-lg tracking-wide uppercase">GoTeam</span>
           </div>
           <nav className="hidden md:flex md:flex-col gap-1">
-            {navItems.map((item) => (
+            {desktopNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -53,21 +66,57 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <nav className="md:hidden flex justify-around bg-surface border-b border-border order-2">
-        {navItems.map((item) => (
+      <main className="flex-1 p-5 pb-24 md:p-10 md:pb-10 max-w-4xl mx-auto w-full order-1">{children}</main>
+
+      {/* Barre de navigation mobile, fixee en bas, avec le Chrono en bulle centrale */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-surface border-t border-border flex items-end justify-around pb-1 pt-2 z-40">
+        {mobileLeftItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
-              `flex-1 text-center py-3 text-xs font-medium ${isActive ? "text-accent" : "text-muted"}`
+              `flex-1 flex flex-col items-center gap-0.5 py-1 text-[10px] font-medium ${
+                isActive ? "text-accent" : "text-muted"
+              }`
             }
           >
+            <span className="text-lg leading-none">{item.icon}</span>
+            {item.label}
+          </NavLink>
+        ))}
+
+        <NavLink to="/chrono" className="flex-1 flex flex-col items-center -mt-7">
+          {({ isActive }) => (
+            <>
+              <span
+                className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg border-4 border-bg ${
+                  isActive ? "bg-accentSoft" : "bg-accent"
+                } text-bg`}
+              >
+                ⏱
+              </span>
+              <span className={`text-[10px] font-medium mt-0.5 ${isActive ? "text-accent" : "text-muted"}`}>
+                Chrono
+              </span>
+            </>
+          )}
+        </NavLink>
+
+        {mobileRightItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              `flex-1 flex flex-col items-center gap-0.5 py-1 text-[10px] font-medium ${
+                isActive ? "text-accent" : "text-muted"
+              }`
+            }
+          >
+            <span className="text-lg leading-none">{item.icon}</span>
             {item.label}
           </NavLink>
         ))}
       </nav>
-
-      <main className="flex-1 p-5 md:p-10 max-w-4xl mx-auto w-full">{children}</main>
     </div>
   );
 }

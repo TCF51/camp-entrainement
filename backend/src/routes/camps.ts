@@ -110,6 +110,7 @@ router.get("/:id", async (req: AuthRequest, res) => {
     where: { id: req.params.id },
     include: {
       exercises: { include: { exercise: true } },
+      circuits: true,
       members: { include: { user: { select: { id: true, name: true } } } },
     },
   });

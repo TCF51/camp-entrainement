@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import ProgramForm, { Program } from "../components/ProgramForm";
+import CampCircuitForm, { CampCircuitData } from "../components/CampCircuitForm";
+import CircuitRunner from "../components/CircuitRunner";
 import { secondsToMMSS } from "../lib/duration";
 
 interface CampExerciseData extends Program {
@@ -18,10 +20,16 @@ interface CampDetailData {
   startDate: string | null;
   endDate: string | null;
   exercises: CampExerciseData[];
+  circuits: CampCircuitData[];
   members: { user: { id: string; name: string } }[];
 }
 
-const RECURRENCE_LABEL: Record<string, (p: Program) => string> = {
+interface CatalogExercise {
+  id: string;
+  name: string;
+}
+
+const RECURRENCE_LABEL: Record<string, (p: { recurrenceType: string; daysOfWeek: string | null; intervalDays: number | null }) => string> = {
   DAILY: () => "Tous les jours",
   WEEKLY: (p) => {
     const days = p.daysOfWeek ? (JSON.parse(p.daysOfWeek) as number[]) : [];
@@ -31,23 +39,33 @@ const RECURRENCE_LABEL: Record<string, (p: Program) => string> = {
   EVERY_N_DAYS: (p) => `Tous les ${p.intervalDays} jours`,
 };
 
+const QUICK_CHRONO_REST_SECONDS = 15;
+
 export default function CampDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [camp, setCamp] = useState<CampDetailData | null>(null);
+  const [catalog, setCatalog] = useState<CatalogExercise[]>([]);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [savingDescription, setSavingDescription] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editingCircuitId, setEditingCircuitId] = useState<string | null>(null);
+  const [creatingCircuit, setCreatingCircuit] = useState(false);
+  const [runningCircuit, setRunningCircuit] = useState<CampCircuitData | null>(null);
+  const [runningExercise, setRunningExercise] = useState<CampExerciseData | null>(null);
 
   function load() {
     if (!id) return;
     api.get<CampDetailData>(`/camps/${id}`).then(setCamp);
   }
   useEffect(load, [id]);
+  useEffect(() => {
+    api.get<CatalogExercise[]>("/exercises").then(setCatalog);
+  }, []);
 
   async function deleteCamp() {
     if (!camp) return;
@@ -72,9 +90,59 @@ export default function CampDetail() {
     }
   }
 
+  async function deleteCircuit(circuitId: string) {
+    await api.del(`/camp-circuits/${circuitId}`);
+    load();
+  }
+
+  async function onExerciseChronoComplete(ce: CampExerciseData) {
+    await api.post("/logs", { campId: id, exerciseId: ce.exercise.id, setsDone: ce.targetSets, valueDone: ce.targetValue ?? 0 });
+    setRunningExercise(null);
+    load();
+  }
+
+  async function onCircuitChronoComplete(circuit: CampCircuitData, totalDurationSeconds: number) {
+    await api.post(`/camp-circuits/${circuit.id}/log`, { durationSeconds: totalDurationSeconds });
+    setRunningCircuit(null);
+    load();
+  }
+
   if (!camp) return <p className="text-muted">Chargement...</p>;
 
   const isCoach = user?.id === camp.createdById;
+
+  if (runningExercise) {
+    return (
+      <div className="max-w-md mx-auto">
+        <CircuitRunner
+          items={[{ name: runningExercise.exercise.name }]}
+          workSeconds={runningExercise.targetValue ?? 30}
+          restSeconds={0}
+          rounds={runningExercise.targetSets}
+          roundRestSeconds={QUICK_CHRONO_REST_SECONDS}
+          onComplete={() => onExerciseChronoComplete(runningExercise)}
+          onCancel={() => setRunningExercise(null)}
+        />
+      </div>
+    );
+  }
+
+  if (runningCircuit) {
+    const circuitItems = JSON.parse(runningCircuit.items) as { name: string }[];
+    return (
+      <div className="max-w-md mx-auto">
+        <CircuitRunner
+          items={circuitItems}
+          workSeconds={runningCircuit.workSeconds}
+          restSeconds={runningCircuit.restSeconds}
+          rounds={runningCircuit.rounds}
+          roundRestSeconds={runningCircuit.roundRestSeconds}
+          onComplete={(duration) => onCircuitChronoComplete(runningCircuit, duration)}
+          onCancel={() => setRunningCircuit(null)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl">
@@ -106,10 +174,7 @@ export default function CampDetail() {
           📊 Classement (regularite)
         </Link>
         {isCoach && (
-          <button
-            onClick={() => setConfirmingDelete(true)}
-            className="text-sm text-muted hover:text-accent ml-auto"
-          >
+          <button onClick={() => setConfirmingDelete(true)} className="text-sm text-muted hover:text-accent ml-auto">
             Supprimer le camp
           </button>
         )}
@@ -129,10 +194,7 @@ export default function CampDetail() {
             >
               {deleting ? "Suppression..." : "Oui, supprimer"}
             </button>
-            <button
-              onClick={() => setConfirmingDelete(false)}
-              className="text-muted hover:text-text text-sm px-2"
-            >
+            <button onClick={() => setConfirmingDelete(false)} className="text-muted hover:text-text text-sm px-2">
               Annuler
             </button>
           </div>
@@ -157,10 +219,7 @@ export default function CampDetail() {
               >
                 {savingDescription ? "Enregistrement..." : "Enregistrer"}
               </button>
-              <button
-                onClick={() => setEditingDescription(false)}
-                className="text-muted hover:text-text text-sm px-2"
-              >
+              <button onClick={() => setEditingDescription(false)} className="text-muted hover:text-text text-sm px-2">
                 Annuler
               </button>
             </div>
@@ -229,6 +288,7 @@ export default function CampDetail() {
             ce.exercise.unit === "SECONDS" && ce.targetValue != null
               ? secondsToMMSS(ce.targetValue)
               : `${ce.targetValue} ${unitLabel}`;
+          const canQuickChrono = ce.exercise.unit === "SECONDS" && ce.targetMode === "FIXED";
 
           return (
             <div key={ce.exercise.id} className="bg-surface border border-border rounded-lg p-4">
@@ -244,6 +304,15 @@ export default function CampDetail() {
                   {ce.description && <p className="text-xs text-muted mt-1 italic">"{ce.description}"</p>}
                 </div>
                 <div className="flex gap-3 items-center shrink-0">
+                  {canQuickChrono && (
+                    <button
+                      onClick={() => setRunningExercise(ce)}
+                      title="Lancer le chrono pour cet exercice"
+                      className="w-9 h-9 rounded-full flex items-center justify-center border-2 border-accent text-accent hover:bg-accent/10"
+                    >
+                      ⏱
+                    </button>
+                  )}
                   <Link
                     to={`/camps/${camp.id}/progression/${ce.exercise.id}`}
                     className="text-sm text-accent hover:text-accentSoft"
@@ -263,6 +332,91 @@ export default function CampDetail() {
             </div>
           );
         })}
+      </div>
+
+      <div className="flex items-center justify-between mt-8 mb-1">
+        <h2 className="font-display uppercase tracking-wide text-lg">Circuits training du camp</h2>
+        {isCoach && !creatingCircuit && (
+          <button onClick={() => setCreatingCircuit(true)} className="text-sm text-accent hover:text-accentSoft">
+            + Nouveau circuit
+          </button>
+        )}
+      </div>
+      <p className="text-muted text-sm mb-4">
+        Enchainements guides au chrono, alternative aux exercices individuels.
+      </p>
+
+      {creatingCircuit && (
+        <div className="mb-3">
+          <CampCircuitForm
+            campId={camp.id}
+            catalog={catalog}
+            onSaved={() => {
+              setCreatingCircuit(false);
+              load();
+            }}
+            onCancel={() => setCreatingCircuit(false)}
+          />
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {camp.circuits.map((circuit) => {
+          if (editingCircuitId === circuit.id) {
+            return (
+              <CampCircuitForm
+                key={circuit.id}
+                campId={camp.id}
+                catalog={catalog}
+                existing={circuit}
+                onSaved={() => {
+                  setEditingCircuitId(null);
+                  load();
+                }}
+                onCancel={() => setEditingCircuitId(null)}
+              />
+            );
+          }
+          const circuitItems = JSON.parse(circuit.items) as { name: string }[];
+          return (
+            <div key={circuit.id} className="bg-surface border border-border rounded-lg p-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="font-medium">🔁 {circuit.name}</p>
+                  <p className="text-sm text-muted">
+                    {circuitItems.map((i) => i.name).join(", ")} · {circuit.rounds} tour{circuit.rounds > 1 ? "s" : ""} ·{" "}
+                    {RECURRENCE_LABEL[circuit.recurrenceType](circuit)}
+                  </p>
+                  {circuit.description && <p className="text-xs text-muted mt-1 italic">"{circuit.description}"</p>}
+                </div>
+                <div className="flex gap-2 items-center shrink-0">
+                  <button
+                    onClick={() => setRunningCircuit(circuit)}
+                    className="bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md px-3 py-1.5 text-sm"
+                  >
+                    ⏱ Lancer
+                  </button>
+                  {isCoach && (
+                    <>
+                      <button
+                        onClick={() => setEditingCircuitId(circuit.id)}
+                        className="text-sm bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-3 py-1.5"
+                      >
+                        Modifier
+                      </button>
+                      <button onClick={() => deleteCircuit(circuit.id)} className="text-muted hover:text-accent text-sm">
+                        Suppr.
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {camp.circuits.length === 0 && !creatingCircuit && (
+          <p className="text-muted text-sm italic">Aucun circuit pour l'instant.</p>
+        )}
       </div>
     </div>
   );

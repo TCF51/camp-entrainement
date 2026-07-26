@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api, ApiError } from "../api/client";
 import { enablePushNotifications } from "../lib/push";
@@ -63,6 +64,21 @@ export default function Profile() {
     <div className="max-w-lg">
       <h1 className="font-display text-3xl uppercase tracking-wide mb-1">Mon profil</h1>
       <p className="text-muted text-sm mb-6">Ces infos sont juste pour toi, pas partagees avec les autres membres.</p>
+
+      <div className="flex gap-2 mb-6 md:hidden">
+        <Link
+          to="/exercices"
+          className="flex-1 text-center bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-3 py-2 text-sm"
+        >
+          📚 Exercices
+        </Link>
+        <Link
+          to="/historique"
+          className="flex-1 text-center bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-3 py-2 text-sm"
+        >
+          📈 Historique
+        </Link>
+      </div>
 
       <form onSubmit={onSubmit} className="bg-surface border border-border rounded-xl p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">

@@ -55,15 +55,21 @@ function computeGlobalStreak(distinctDates: Set<string>, today: Date): number {
 }
 
 // Recalcule les stats de l'utilisateur et attribue tout nouveau badge merite.
-// Appele apres chaque validation de seance. Idempotent (un badge n'est jamais attribue deux fois).
+// Appele apres chaque validation de seance (exercice, circuit de camp, ou seance chrono libre).
+// Idempotent (un badge n'est jamais attribue deux fois).
 export async function checkAndAwardBadges(userId: string): Promise<BadgeDefinition[]> {
-  const logs = await prisma.exerciseLog.findMany({
-    where: { userId },
-    select: { date: true },
-  });
+  const [exerciseLogs, circuitLogs, chronoSessions] = await Promise.all([
+    prisma.exerciseLog.findMany({ where: { userId }, select: { date: true } }),
+    prisma.campCircuitLog.findMany({ where: { userId }, select: { date: true } }),
+    prisma.chronoSession.findMany({ where: { userId }, select: { completedAt: true } }),
+  ]);
 
-  const distinctDates = new Set(logs.map((l) => l.date.toISOString().slice(0, 10)));
-  const totalSessions = logs.length;
+  const distinctDates = new Set<string>([
+    ...exerciseLogs.map((l) => l.date.toISOString().slice(0, 10)),
+    ...circuitLogs.map((l) => l.date.toISOString().slice(0, 10)),
+    ...chronoSessions.map((s) => s.completedAt.toISOString().slice(0, 10)),
+  ]);
+  const totalSessions = exerciseLogs.length + circuitLogs.length + chronoSessions.length;
   const streak = computeGlobalStreak(distinctDates, new Date());
 
   const earnedKeys = new Set<string>();

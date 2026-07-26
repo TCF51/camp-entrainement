@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import DurationInput from "../components/DurationInput";
+import CircuitRunner from "../components/CircuitRunner";
 import { secondsToMMSS } from "../lib/duration";
 
-interface TodayItem {
+interface TodayExerciseItem {
+  kind: "exercise";
   campExerciseId: string;
   campId: string;
   campName: string;
@@ -20,6 +22,21 @@ interface TodayItem {
   log: { setsDone: number; valueDone: number } | null;
 }
 
+interface TodayCircuitItem {
+  kind: "circuit";
+  campCircuitId: string;
+  campId: string;
+  campName: string;
+  name: string;
+  description: string | null;
+  items: { exerciseId?: string; name: string }[];
+  workSeconds: number;
+  restSeconds: number;
+  rounds: number;
+  roundRestSeconds: number;
+  done: boolean;
+}
+
 interface NewBadge {
   key: string;
   name: string;
@@ -27,25 +44,39 @@ interface NewBadge {
   emoji: string;
 }
 
+// Repos par defaut entre chaque serie lors d'un chrono rapide lance sur un seul exercice
+const QUICK_CHRONO_REST_SECONDS = 15;
+
 export default function Today() {
-  const [items, setItems] = useState<TodayItem[] | null>(null);
+  const [items, setItems] = useState<TodayExerciseItem[] | null>(null);
+  const [circuits, setCircuits] = useState<TodayCircuitItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sets, setSets] = useState(0);
   const [value, setValue] = useState(0);
   const [celebrating, setCelebrating] = useState<NewBadge[]>([]);
+  const [runner, setRunner] = useState<
+    | { type: "exercise"; item: TodayExerciseItem }
+    | { type: "circuit"; item: TodayCircuitItem }
+    | null
+  >(null);
 
   function load() {
-    api.get<{ date: string; items: TodayItem[] }>("/today").then((res) => setItems(res.items));
+    api
+      .get<{ date: string; items: TodayExerciseItem[]; circuits: TodayCircuitItem[] }>("/today")
+      .then((res) => {
+        setItems(res.items);
+        setCircuits(res.circuits);
+      });
   }
   useEffect(load, []);
 
-  function startEditing(item: TodayItem) {
+  function startEditing(item: TodayExerciseItem) {
     setEditingId(item.campExerciseId);
     setSets(item.log?.setsDone ?? item.targetSets);
     setValue(item.log?.valueDone ?? item.targetValue ?? item.personalBest ?? 0);
   }
 
-  async function confirm(item: TodayItem) {
+  async function confirm(item: TodayExerciseItem) {
     const res = await api.post<{ newBadges: NewBadge[] }>("/logs", {
       campId: item.campId,
       exerciseId: item.exerciseId,
@@ -57,13 +88,68 @@ export default function Today() {
     if (res.newBadges?.length) setCelebrating(res.newBadges);
   }
 
-  async function undo(item: TodayItem) {
+  async function undo(item: TodayExerciseItem) {
     await api.del(`/logs?campId=${item.campId}&exerciseId=${item.exerciseId}`);
     load();
   }
 
-  const doneCount = items?.filter((i) => i.done).length ?? 0;
-  const total = items?.length ?? 0;
+  async function onExerciseChronoComplete(item: TodayExerciseItem) {
+    const res = await api.post<{ newBadges: NewBadge[] }>("/logs", {
+      campId: item.campId,
+      exerciseId: item.exerciseId,
+      setsDone: item.targetSets,
+      valueDone: item.targetValue ?? 0,
+    });
+    setRunner(null);
+    load();
+    if (res.newBadges?.length) setCelebrating(res.newBadges);
+  }
+
+  async function onCircuitComplete(item: TodayCircuitItem, totalDurationSeconds: number) {
+    const res = await api.post<{ newBadges: NewBadge[] }>(`/camp-circuits/${item.campCircuitId}/log`, {
+      durationSeconds: totalDurationSeconds,
+    });
+    setRunner(null);
+    load();
+    if (res.newBadges?.length) setCelebrating(res.newBadges);
+  }
+
+  if (runner?.type === "exercise") {
+    const item = runner.item;
+    return (
+      <div className="max-w-md mx-auto">
+        <CircuitRunner
+          items={[{ name: item.exerciseName }]}
+          workSeconds={item.targetValue ?? 30}
+          restSeconds={0}
+          rounds={item.targetSets}
+          roundRestSeconds={QUICK_CHRONO_REST_SECONDS}
+          onComplete={() => onExerciseChronoComplete(item)}
+          onCancel={() => setRunner(null)}
+        />
+      </div>
+    );
+  }
+
+  if (runner?.type === "circuit") {
+    const item = runner.item;
+    return (
+      <div className="max-w-md mx-auto">
+        <CircuitRunner
+          items={item.items.map((i) => ({ name: i.name }))}
+          workSeconds={item.workSeconds}
+          restSeconds={item.restSeconds}
+          rounds={item.rounds}
+          roundRestSeconds={item.roundRestSeconds}
+          onComplete={(duration) => onCircuitComplete(item, duration)}
+          onCancel={() => setRunner(null)}
+        />
+      </div>
+    );
+  }
+
+  const doneCount = (items?.filter((i) => i.done).length ?? 0) + circuits.filter((c) => c.done).length;
+  const total = (items?.length ?? 0) + circuits.length;
 
   return (
     <div className="max-w-xl">
@@ -90,7 +176,7 @@ export default function Today() {
 
       {items === null && <p className="text-muted">Chargement...</p>}
 
-      {items?.length === 0 && (
+      {items?.length === 0 && circuits.length === 0 && (
         <div className="bg-surface border border-dashed border-border rounded-xl p-8 text-center">
           <p className="text-muted text-sm mb-3">
             Aucun exercice programme pour aujourd'hui. Va voir tes camps pour rejoindre ou creer un camp.
@@ -101,10 +187,43 @@ export default function Today() {
         </div>
       )}
 
+      {circuits.length > 0 && (
+        <div className="space-y-3 mb-4">
+          {circuits.map((c) => (
+            <div
+              key={c.campCircuitId}
+              className={`bg-surface border rounded-xl p-4 ${c.done ? "border-success/50" : "border-border"}`}
+            >
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="font-medium">🔁 {c.name}</p>
+                  <p className="text-xs text-muted">
+                    {c.campName} · {c.rounds} tour{c.rounds > 1 ? "s" : ""} · {c.items.length} exercice
+                    {c.items.length > 1 ? "s" : ""}
+                  </p>
+                  {c.description && <p className="text-xs text-muted italic mt-0.5">"{c.description}"</p>}
+                </div>
+                {c.done ? (
+                  <span className="text-success text-sm shrink-0">✓ Fait</span>
+                ) : (
+                  <button
+                    onClick={() => setRunner({ type: "circuit", item: c })}
+                    className="bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md px-4 py-2 text-sm shrink-0"
+                  >
+                    ⏱ Lancer
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="space-y-3">
         {items?.map((item) => {
           const unitLabel = item.unit === "REPS" ? "reps" : "sec";
           const isEditing = editingId === item.campExerciseId;
+          const canQuickChrono = item.unit === "SECONDS" && item.targetMode === "FIXED" && !item.done;
           const targetLabel =
             item.targetMode === "MAX"
               ? `${item.targetSets} serie${item.targetSets > 1 ? "s" : ""} a fond${
@@ -131,18 +250,29 @@ export default function Today() {
                 </div>
 
                 {!isEditing && (
-                  <button
-                    onClick={() => (item.done ? undo(item) : startEditing(item))}
-                    className={`stamp-btn w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 ${
-                      item.done
-                        ? "bg-success/20 border-success text-success"
-                        : "bg-surface2 border-border text-muted hover:border-accent hover:text-accent"
-                    }`}
-                    aria-label={item.done ? "Annuler la validation" : "Valider la seance"}
-                    title={item.done ? "Fait - clique pour annuler" : "Marquer comme fait"}
-                  >
-                    {item.done ? "✓" : ""}
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {canQuickChrono && (
+                      <button
+                        onClick={() => setRunner({ type: "exercise", item })}
+                        title="Lancer le chrono pour cet exercice"
+                        className="w-10 h-10 rounded-full flex items-center justify-center border-2 border-accent text-accent hover:bg-accent/10"
+                      >
+                        ⏱
+                      </button>
+                    )}
+                    <button
+                      onClick={() => (item.done ? undo(item) : startEditing(item))}
+                      className={`stamp-btn w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 ${
+                        item.done
+                          ? "bg-success/20 border-success text-success"
+                          : "bg-surface2 border-border text-muted hover:border-accent hover:text-accent"
+                      }`}
+                      aria-label={item.done ? "Annuler la validation" : "Valider la seance"}
+                      title={item.done ? "Fait - clique pour annuler" : "Marquer comme fait"}
+                    >
+                      {item.done ? "✓" : ""}
+                    </button>
+                  </div>
                 )}
               </div>
 

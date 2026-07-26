@@ -36,6 +36,8 @@ model User {
   campMessages   CampMessage[]
   sentMessages   DirectMessage[]   @relation("MessageSender")
   receivedMessages DirectMessage[] @relation("MessageRecipient")
+  chronoSessions ChronoSession[]
+  circuitLogs    CampCircuitLog[]
 }
 
 model Exercise {
@@ -64,6 +66,7 @@ model Camp {
   createdAt   DateTime  @default(now())
 
   exercises CampExercise[]
+  circuits  CampCircuit[]
   members   CampMembership[]
   logs      ExerciseLog[]
   messages  CampMessage[]
@@ -165,4 +168,59 @@ model DirectMessage {
 
   sender    User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
   recipient User @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+}
+
+// Seance de circuit training "libre" (construite depuis l'onglet Chrono, pas liee a un camp).
+// Enregistree une fois terminee, pour alimenter l'historique d'activite de l'utilisateur.
+model ChronoSession {
+  id                   String   @id @default(cuid())
+  userId               String
+  name                 String? // nom optionnel donne par l'utilisateur
+  items                String  // JSON : liste ordonnee des noms d'exercices du circuit
+  workSeconds          Int
+  restSeconds          Int
+  rounds               Int
+  roundRestSeconds     Int
+  totalDurationSeconds Int
+  completedAt          DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Circuit training defini par le createur d'un camp (alternative aux exercices individuels).
+// Compose d'une liste ordonnee d'exercices avec temps de travail/repos, nombre de tours, etc.
+model CampCircuit {
+  id               String   @id @default(cuid())
+  campId           String
+  name             String
+  description      String?
+  items            String   // JSON : [{ "exerciseId": "...", "name": "..." }, ...] ordonne
+  workSeconds      Int
+  restSeconds      Int
+  rounds           Int
+  roundRestSeconds Int
+  recurrenceType   String   @default("DAILY")
+  daysOfWeek       String?
+  intervalDays     Int?
+  startDate        DateTime @default(now())
+
+  camp Camp             @relation(fields: [campId], references: [id], onDelete: Cascade)
+  logs CampCircuitLog[]
+}
+
+// Validation, par un membre, d'un circuit de camp realise un jour donne
+model CampCircuitLog {
+  id              String   @id @default(cuid())
+  userId          String
+  campCircuitId   String
+  campId          String
+  date            DateTime
+  durationSeconds Int
+  completed       Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campCircuit CampCircuit @relation(fields: [campCircuitId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, campCircuitId, date])
 }
