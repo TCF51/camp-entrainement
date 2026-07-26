@@ -69,6 +69,7 @@ model Camp {
   circuits  CampCircuit[]
   members   CampMembership[]
   logs      ExerciseLog[]
+  circuitLogs CampCircuitLog[]
   messages  CampMessage[]
 }
 
@@ -221,6 +222,7 @@ model CampCircuitLog {
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   campCircuit CampCircuit @relation(fields: [campCircuitId], references: [id], onDelete: Cascade)
+  camp        Camp        @relation(fields: [campId], references: [id], onDelete: Cascade)
 
   @@unique([userId, campCircuitId, date])
 }
