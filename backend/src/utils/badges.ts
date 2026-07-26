@@ -35,18 +35,23 @@ const TOTAL_THRESHOLDS: [number, string][] = [
 ];
 
 // Calcule le plus long "streak" en cours (jours consecutifs avec au moins une seance,
-// tous camps/exercices confondus), en remontant depuis aujourd'hui ou hier.
-function computeGlobalStreak(distinctDates: Set<string>, today: Date): number {
+// tous camps/exercices confondus), en remontant depuis aujourd'hui ou hier. Les jours
+// marques comme "repos justifie" sont neutres : ils n'interrompent pas la serie.
+function computeGlobalStreak(distinctDates: Set<string>, today: Date, restDates: Set<string> = new Set()): number {
   const start = toDayStart(today);
   // Si rien n'est fait aujourd'hui, on tolere et on part d'hier pour ne pas casser la serie
   // en cours de journee.
   let cursor = new Date(start);
-  if (!distinctDates.has(cursor.toISOString().slice(0, 10))) {
+  if (!distinctDates.has(cursor.toISOString().slice(0, 10)) && !restDates.has(cursor.toISOString().slice(0, 10))) {
     cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
   let streak = 0;
   for (let i = 0; i < 3650; i++) {
     const key = cursor.toISOString().slice(0, 10);
+    if (restDates.has(key)) {
+      cursor.setUTCDate(cursor.getUTCDate() - 1);
+      continue;
+    }
     if (!distinctDates.has(key)) break;
     streak++;
     cursor.setUTCDate(cursor.getUTCDate() - 1);
@@ -70,7 +75,9 @@ export async function checkAndAwardBadges(userId: string): Promise<BadgeDefiniti
     ...chronoSessions.map((s) => s.completedAt.toISOString().slice(0, 10)),
   ]);
   const totalSessions = exerciseLogs.length + circuitLogs.length + chronoSessions.length;
-  const streak = computeGlobalStreak(distinctDates, new Date());
+  const restDays = await prisma.restDay.findMany({ where: { userId }, select: { date: true } });
+  const restDates = new Set(restDays.map((r) => r.date.toISOString().slice(0, 10)));
+  const streak = computeGlobalStreak(distinctDates, new Date(), restDates);
 
   const earnedKeys = new Set<string>();
   // On attribue TOUS les paliers deja franchis (pas seulement le plus haut), pour garder

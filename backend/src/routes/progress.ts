@@ -30,19 +30,23 @@ router.get("/exercise", async (req: AuthRequest, res) => {
     where: { userId: req.userId, campId, exerciseId },
     orderBy: { date: "asc" },
   });
+  const restDays = await prisma.restDay.findMany({ where: { userId: req.userId } });
+  const restDates = new Set(restDays.map((r) => r.date.toISOString().slice(0, 10)));
 
   const completedDates = new Set(logs.map((l) => l.date.toISOString().slice(0, 10)));
-  const streak = computeStreak(campExercise, completedDates, new Date());
+  const streak = computeStreak(campExercise, completedDates, new Date(), restDates);
 
   // Taux de regularite depuis le debut de la consigne : jours dus vs jours reussis
+  // (les jours de repos justifie ne comptent pas comme "dus")
   const today = toDayStart(new Date());
   let dueCount = 0;
   let doneCount = 0;
   const cursor = toDayStart(campExercise.startDate);
   while (cursor.getTime() <= today.getTime()) {
-    if (isDueOnDate(campExercise, cursor)) {
+    const key = cursor.toISOString().slice(0, 10);
+    if (!restDates.has(key) && isDueOnDate(campExercise, cursor)) {
       dueCount++;
-      if (completedDates.has(cursor.toISOString().slice(0, 10))) doneCount++;
+      if (completedDates.has(key)) doneCount++;
     }
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }

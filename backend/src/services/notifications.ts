@@ -103,3 +103,23 @@ export function scheduleReminders() {
   });
   console.log(`[push] Rappels quotidiens planifies a ${hour}h (heure serveur).`);
 }
+
+// Envoie une notification a UN utilisateur precis (tous ses appareils abonnes), avec un
+// titre/corps libres. Utilise pour prevenir d'un nouveau message (camp ou prive).
+export async function sendPushToUser(userId: string, title: string, body: string) {
+  const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } });
+  if (subscriptions.length === 0) return;
+
+  const payload = JSON.stringify({ title, body });
+  for (const sub of subscriptions) {
+    try {
+      await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
+    } catch (err: any) {
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
+      } else {
+        console.error("[push] Erreur d'envoi :", err.message);
+      }
+    }
+  }
+}

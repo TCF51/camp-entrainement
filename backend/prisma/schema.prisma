@@ -38,6 +38,10 @@ model User {
   receivedMessages DirectMessage[] @relation("MessageRecipient")
   chronoSessions ChronoSession[]
   circuitLogs    CampCircuitLog[]
+  restDays       RestDay[]
+  favoriteCircuits FavoriteCircuit[]
+  reactions      Reaction[]
+  resetTokens    PasswordResetToken[]
 }
 
 model Exercise {
@@ -225,4 +229,62 @@ model CampCircuitLog {
   camp        Camp        @relation(fields: [campId], references: [id], onDelete: Cascade)
 
   @@unique([userId, campCircuitId, date])
+}
+
+// Jour marque comme "repos justifie" par l'utilisateur (blessure, voyage...) : ce jour
+// n'est jamais compte comme un manque dans les calculs de regularite/streak, ni comme du
+// depend  (il est neutre). S'applique globalement, tous camps/exercices confondus.
+model RestDay {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime // jour concerne (heure normalisee a minuit)
+  reason    String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+// Circuit training "favori" enregistre par un utilisateur depuis l'onglet Chrono,
+// pour le relancer directement sans le reconstruire.
+model FavoriteCircuit {
+  id               String   @id @default(cuid())
+  userId           String
+  name             String
+  items            String   // JSON : liste ordonnee des noms d'exercices
+  workSeconds      Int
+  restSeconds      Int
+  rounds           Int
+  roundRestSeconds Int
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Reaction rapide (encouragement) laissee par un membre de camp sur une seance validee
+// par un autre membre (exercice ou circuit). Purement social, aucun impact sur les stats.
+model Reaction {
+  id         String   @id @default(cuid())
+  userId     String   // qui reagit
+  targetType String   // "exercise" ou "circuit" (type de log cible)
+  targetId   String   // id du ExerciseLog ou CampCircuitLog cible
+  type       String   // cle du type de reaction, voir src/utils/reactions.ts
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetType, targetId, type])
+}
+
+// Jeton de reinitialisation de mot de passe, a duree de vie limitee
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

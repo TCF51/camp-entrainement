@@ -17,6 +17,9 @@ import messageRoutes from "./routes/messages";
 import campCircuitRoutes from "./routes/campCircuits";
 import chronoSessionRoutes from "./routes/chronoSessions";
 import activityRoutes from "./routes/activity";
+import restDayRoutes from "./routes/restDays";
+import reactionRoutes from "./routes/reactions";
+import favoriteCircuitRoutes from "./routes/favoriteCircuits";
 import { initPush, scheduleReminders } from "./services/notifications";
 
 const app = express();
@@ -41,6 +44,9 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/camp-circuits", campCircuitRoutes);
 app.use("/api/chrono-sessions", chronoSessionRoutes);
 app.use("/api/activity", activityRoutes);
+app.use("/api/rest-days", restDayRoutes);
+app.use("/api/reactions", reactionRoutes);
+app.use("/api/favorite-circuits", favoriteCircuitRoutes);
 
 // Gestion d'erreur generique (evite qu'une exception fasse planter le process)
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

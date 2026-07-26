@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AuthRequest, requireAuth } from "../middleware/auth";
+import { sendPushToUser } from "../services/notifications";
 
 const router = Router();
 router.use(requireAuth);
@@ -47,6 +48,18 @@ router.post("/:campId/messages", async (req: AuthRequest, res) => {
   const message = await prisma.campMessage.create({
     data: { campId, userId: req.userId!, body: parsed.data.body.trim() },
     include: { user: { select: { id: true, name: true } } },
+  });
+
+  // Notifie les autres membres du camp (pas l'expediteur), sans bloquer la reponse
+  prisma.camp.findUnique({ where: { id: campId } }).then((camp) => {
+    prisma.campMembership
+      .findMany({ where: { campId, userId: { not: req.userId } } })
+      .then((others) => {
+        const preview = message.body.length > 80 ? `${message.body.slice(0, 80)}…` : message.body;
+        for (const m of others) {
+          sendPushToUser(m.userId, `💬 ${camp?.name ?? "Camp"}`, `${message.user.name} : ${preview}`).catch(() => {});
+        }
+      });
   });
 
   res.status(201).json(message);

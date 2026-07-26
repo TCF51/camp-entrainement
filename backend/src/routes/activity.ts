@@ -89,4 +89,78 @@ router.get("/", async (req: AuthRequest, res) => {
   });
 });
 
+function csvEscape(value: string): string {
+  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
+
+// Export CSV de tout l'historique de l'utilisateur (exercices, circuits, chrono libre)
+router.get("/export.csv", async (req: AuthRequest, res) => {
+  const userId = req.userId!;
+
+  const [exerciseLogs, circuitLogs, chronoSessions] = await Promise.all([
+    prisma.exerciseLog.findMany({
+      where: { userId },
+      include: { exercise: true, camp: { select: { name: true } } },
+      orderBy: { date: "asc" },
+    }),
+    prisma.campCircuitLog.findMany({
+      where: { userId },
+      include: { campCircuit: { select: { name: true } }, camp: { select: { name: true } } },
+      orderBy: { date: "asc" },
+    }),
+    prisma.chronoSession.findMany({ where: { userId }, orderBy: { completedAt: "asc" } }),
+  ]);
+
+  const rows: string[] = ["date,type,nom,camp,series,valeur,unite,duree_secondes"];
+
+  for (const l of exerciseLogs) {
+    rows.push(
+      [
+        l.date.toISOString().slice(0, 10),
+        "exercice",
+        csvEscape(l.exercise.name),
+        csvEscape(l.camp.name),
+        String(l.setsDone),
+        String(l.valueDone),
+        l.exercise.unit,
+        "",
+      ].join(",")
+    );
+  }
+  for (const l of circuitLogs) {
+    rows.push(
+      [
+        l.date.toISOString().slice(0, 10),
+        "circuit_camp",
+        csvEscape(l.campCircuit.name),
+        csvEscape(l.camp.name),
+        "",
+        "",
+        "",
+        String(l.durationSeconds),
+      ].join(",")
+    );
+  }
+  for (const s of chronoSessions) {
+    rows.push(
+      [
+        s.completedAt.toISOString().slice(0, 10),
+        "chrono_libre",
+        csvEscape(s.name || "Circuit libre"),
+        "",
+        String(s.rounds),
+        "",
+        "",
+        String(s.totalDurationSeconds),
+      ].join(",")
+    );
+  }
+
+  const csv = rows.join("\n");
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="goteam-historique.csv"`);
+  res.send(csv);
+});
+
 export default router;

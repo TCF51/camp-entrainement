@@ -20,6 +20,16 @@ interface NewBadge {
   emoji: string;
 }
 
+interface FavoriteCircuit {
+  id: string;
+  name: string;
+  items: string; // JSON
+  workSeconds: number;
+  restSeconds: number;
+  rounds: number;
+  roundRestSeconds: number;
+}
+
 export default function Chrono() {
   const [mode, setMode] = useState<"circuit" | "simple">("circuit");
 
@@ -36,9 +46,45 @@ export default function Chrono() {
   const [isRunningCircuit, setIsRunningCircuit] = useState(false);
   const [celebrating, setCelebrating] = useState<NewBadge[]>([]);
 
+  const [favorites, setFavorites] = useState<FavoriteCircuit[]>([]);
+  const [savingFavoriteName, setSavingFavoriteName] = useState<string | null>(null);
+
   useEffect(() => {
     api.get<CatalogExercise[]>("/exercises").then(setCatalog);
+    loadFavorites();
   }, []);
+
+  function loadFavorites() {
+    api.get<FavoriteCircuit[]>("/favorite-circuits").then(setFavorites);
+  }
+
+  function loadFavorite(fav: FavoriteCircuit) {
+    const names = JSON.parse(fav.items) as string[];
+    setItems(names.map((name) => ({ key: `${name}-${Date.now()}-${Math.random()}`, name })));
+    setWorkSeconds(fav.workSeconds);
+    setRestSeconds(fav.restSeconds);
+    setRounds(fav.rounds);
+    setRoundRestSeconds(fav.roundRestSeconds);
+  }
+
+  async function saveFavorite() {
+    if (!savingFavoriteName?.trim() || items.length === 0) return;
+    await api.post("/favorite-circuits", {
+      name: savingFavoriteName.trim(),
+      items: items.map((i) => i.name),
+      workSeconds,
+      restSeconds,
+      rounds,
+      roundRestSeconds,
+    });
+    setSavingFavoriteName(null);
+    loadFavorites();
+  }
+
+  async function deleteFavorite(id: string) {
+    await api.del(`/favorite-circuits/${id}`);
+    loadFavorites();
+  }
 
   const filteredCatalog = useMemo(
     () => catalog.filter((e) => e.name.toLowerCase().includes(search.toLowerCase())),
@@ -154,6 +200,27 @@ export default function Chrono() {
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
           <div>
+            {favorites.length > 0 && (
+              <div className="mb-5">
+                <h2 className="font-display uppercase tracking-wide text-sm mb-2">Mes circuits favoris</h2>
+                <div className="space-y-1.5">
+                  {favorites.map((fav) => (
+                    <div
+                      key={fav.id}
+                      className="flex items-center justify-between bg-surface border border-border rounded-md px-3 py-2 text-sm"
+                    >
+                      <button onClick={() => loadFavorite(fav)} className="text-left hover:text-accent">
+                        ⭐ {fav.name}
+                      </button>
+                      <button onClick={() => deleteFavorite(fav.id)} className="text-muted hover:text-accent text-xs">
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <h2 className="font-display uppercase tracking-wide text-sm mb-2">1. Choisis tes exercices</h2>
             <input
               placeholder="Rechercher un exercice..."
@@ -270,6 +337,31 @@ export default function Chrono() {
             >
               Lancer le circuit
             </button>
+
+            {savingFavoriteName !== null ? (
+              <div className="flex gap-2 mt-2">
+                <input
+                  value={savingFavoriteName}
+                  onChange={(e) => setSavingFavoriteName(e.target.value)}
+                  placeholder="Nom du circuit favori..."
+                  className="flex-1 bg-surface2 border border-border rounded-md px-2 py-1.5 text-sm"
+                />
+                <button onClick={saveFavorite} className="bg-surface2 hover:bg-border border border-border rounded-md px-3 py-1.5 text-sm">
+                  OK
+                </button>
+                <button onClick={() => setSavingFavoriteName(null)} className="text-muted text-sm px-2">
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setSavingFavoriteName("")}
+                disabled={items.length === 0}
+                className="w-full mt-2 text-sm text-accent hover:text-accentSoft disabled:opacity-40"
+              >
+                ⭐ Sauvegarder ce circuit en favori
+              </button>
+            )}
           </div>
         </div>
       )}

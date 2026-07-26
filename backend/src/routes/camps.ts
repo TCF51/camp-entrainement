@@ -184,6 +184,8 @@ router.get("/:id/leaderboard", async (req: AuthRequest, res) => {
       select: { date: true },
     });
     const completedDates = new Set(logs.map((l) => l.date.toISOString().slice(0, 10)));
+    const restDays = await prisma.restDay.findMany({ where: { userId: member.userId }, select: { date: true } });
+    const restDates = new Set(restDays.map((r) => r.date.toISOString().slice(0, 10)));
 
     let dueCount = 0;
     let doneCount = 0;
@@ -193,9 +195,10 @@ router.get("/:id/leaderboard", async (req: AuthRequest, res) => {
       );
       const cursor = new Date(effectiveStart);
       while (cursor.getTime() <= today.getTime()) {
-        if (isDueOnDate(ce, cursor)) {
+        const key = cursor.toISOString().slice(0, 10);
+        if (!restDates.has(key) && isDueOnDate(ce, cursor)) {
           dueCount++;
-          if (completedDates.has(cursor.toISOString().slice(0, 10))) doneCount++;
+          if (completedDates.has(key)) doneCount++;
         }
         cursor.setUTCDate(cursor.getUTCDate() + 1);
       }
@@ -203,14 +206,18 @@ router.get("/:id/leaderboard", async (req: AuthRequest, res) => {
     const regularityRate = dueCount > 0 ? Math.round((doneCount / dueCount) * 100) : 0;
 
     // Streak propre a ce camp : jours consecutifs (en remontant depuis aujourd'hui/hier)
-    // avec au moins une seance validee dans ce camp.
+    // avec au moins une seance validee dans ce camp. Les jours de repos justifie sont neutres.
     let streak = 0;
     const cursor2 = toDayStart(today);
-    if (!completedDates.has(cursor2.toISOString().slice(0, 10))) {
+    if (!completedDates.has(cursor2.toISOString().slice(0, 10)) && !restDates.has(cursor2.toISOString().slice(0, 10))) {
       cursor2.setUTCDate(cursor2.getUTCDate() - 1);
     }
     for (let i = 0; i < 3650; i++) {
       const key = cursor2.toISOString().slice(0, 10);
+      if (restDates.has(key)) {
+        cursor2.setUTCDate(cursor2.getUTCDate() - 1);
+        continue;
+      }
       if (!completedDates.has(key)) break;
       streak++;
       cursor2.setUTCDate(cursor2.getUTCDate() - 1);
@@ -228,6 +235,187 @@ router.get("/:id/leaderboard", async (req: AuthRequest, res) => {
 
   results.sort((a, b) => b.regularityRate - a.regularityRate || b.streak - a.streak);
   res.json(results);
+});
+
+// Duplique un camp (nom, descriptif, exercices et circuits avec leurs consignes) pour
+// relancer une nouvelle "saison" sans tout reconfigurer. Reserve au createur du camp.
+// Les membres, l'historique et les messages ne sont PAS copies.
+router.post("/:id/duplicate", async (req: AuthRequest, res) => {
+  const original = await prisma.camp.findUnique({
+    where: { id: req.params.id },
+    include: { exercises: true, circuits: true },
+  });
+  if (!original) return res.status(404).json({ error: "Camp introuvable." });
+  if (original.createdById !== req.userId) {
+    return res.status(403).json({ error: "Seul le createur du camp peut le dupliquer." });
+  }
+
+  let code = generateCampCode();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const clash = await prisma.camp.findUnique({ where: { code } });
+    if (!clash) break;
+    code = generateCampCode();
+  }
+
+  const duplicate = await prisma.camp.create({
+    data: {
+      name: `${original.name} (copie)`,
+      description: original.description,
+      code,
+      createdById: req.userId!,
+      exercises: {
+        create: original.exercises.map((ce) => ({
+          exerciseId: ce.exerciseId,
+          description: ce.description,
+          targetSets: ce.targetSets,
+          targetMode: ce.targetMode,
+          targetValue: ce.targetValue,
+          recurrenceType: ce.recurrenceType,
+          daysOfWeek: ce.daysOfWeek,
+          intervalDays: ce.intervalDays,
+        })),
+      },
+      circuits: {
+        create: original.circuits.map((c) => ({
+          name: c.name,
+          description: c.description,
+          items: c.items,
+          workSeconds: c.workSeconds,
+          restSeconds: c.restSeconds,
+          rounds: c.rounds,
+          roundRestSeconds: c.roundRestSeconds,
+          recurrenceType: c.recurrenceType,
+          daysOfWeek: c.daysOfWeek,
+          intervalDays: c.intervalDays,
+        })),
+      },
+      members: { create: [{ userId: req.userId! }] },
+    },
+  });
+
+  res.status(201).json(duplicate);
+});
+
+// Vue calendrier d'un mois pour l'utilisateur courant : pour chaque jour, etait-ce du
+// (au moins un exercice/circuit du camp) et a-t-il ete fait (au moins un valide) ?
+router.get("/:id/calendar", async (req: AuthRequest, res) => {
+  const campId = req.params.id;
+  const membership = await prisma.campMembership.findUnique({
+    where: { userId_campId: { userId: req.userId!, campId } },
+  });
+  if (!membership) return res.status(403).json({ error: "Tu n'es pas membre de ce camp." });
+
+  const monthParam = (req.query.month as string) || new Date().toISOString().slice(0, 7); // "YYYY-MM"
+  const [yearStr, monthStr] = monthParam.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr); // 1-12
+
+  const camp = await prisma.camp.findUnique({
+    where: { id: campId },
+    include: { exercises: true, circuits: true },
+  });
+  if (!camp) return res.status(404).json({ error: "Camp introuvable." });
+
+  const [logs, circuitLogs, restDays] = await Promise.all([
+    prisma.exerciseLog.findMany({ where: { userId: req.userId, campId }, select: { date: true } }),
+    prisma.campCircuitLog.findMany({ where: { userId: req.userId, campId }, select: { date: true } }),
+    prisma.restDay.findMany({ where: { userId: req.userId }, select: { date: true } }),
+  ]);
+  const doneDates = new Set([
+    ...logs.map((l) => l.date.toISOString().slice(0, 10)),
+    ...circuitLogs.map((l) => l.date.toISOString().slice(0, 10)),
+  ]);
+  const restDates = new Set(restDays.map((r) => r.date.toISOString().slice(0, 10)));
+
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const days = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(Date.UTC(year, month - 1, d));
+    const key = date.toISOString().slice(0, 10);
+    const due =
+      (camp.startDate ? date.getTime() >= toDayStart(camp.startDate).getTime() : true) &&
+      (camp.endDate ? date.getTime() <= toDayStart(camp.endDate).getTime() : true) &&
+      (camp.exercises.some((ce) => isDueOnDate(ce, date)) || camp.circuits.some((c) => isDueOnDate(c, date)));
+    days.push({
+      date: key,
+      due,
+      done: doneDates.has(key),
+      rest: restDates.has(key),
+    });
+  }
+
+  res.json({ month: monthParam, days });
+});
+
+// Fil d'activite du camp : dernieres seances validees par tous les membres (avec reactions),
+// pour s'encourager sans se comparer sur la performance.
+router.get("/:id/feed", async (req: AuthRequest, res) => {
+  const campId = req.params.id;
+  const membership = await prisma.campMembership.findUnique({
+    where: { userId_campId: { userId: req.userId!, campId } },
+  });
+  if (!membership) return res.status(403).json({ error: "Tu n'es pas membre de ce camp." });
+
+  const [logs, circuitLogs] = await Promise.all([
+    prisma.exerciseLog.findMany({
+      where: { campId },
+      include: { user: { select: { id: true, name: true } }, exercise: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    }),
+    prisma.campCircuitLog.findMany({
+      where: { campId },
+      include: { user: { select: { id: true, name: true } }, campCircuit: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    }),
+  ]);
+
+  const feedItemsRaw = [
+    ...logs.map((l) => ({
+      targetType: "exercise" as const,
+      targetId: l.id,
+      userId: l.user.id,
+      userName: l.user.name,
+      label: l.exercise.name,
+      date: l.date.toISOString(),
+      createdAt: l.createdAt,
+    })),
+    ...circuitLogs.map((l) => ({
+      targetType: "circuit" as const,
+      targetId: l.id,
+      userId: l.user.id,
+      userName: l.user.name,
+      label: l.campCircuit.name,
+      date: l.date.toISOString(),
+      createdAt: l.createdAt,
+    })),
+  ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 30);
+
+  const reactions = await prisma.reaction.findMany({
+    where: {
+      OR: feedItemsRaw.map((i) => ({ targetType: i.targetType, targetId: i.targetId })),
+    },
+  });
+
+  const feedItems = feedItemsRaw.map((item) => {
+    const itemReactions = reactions.filter((r) => r.targetType === item.targetType && r.targetId === item.targetId);
+    const byType = new Map<string, { count: number; reactedByMe: boolean }>();
+    for (const r of itemReactions) {
+      const entry = byType.get(r.type) ?? { count: 0, reactedByMe: false };
+      entry.count++;
+      if (r.userId === req.userId) entry.reactedByMe = true;
+      byType.set(r.type, entry);
+    }
+    return {
+      ...item,
+      reactions: [...byType.entries()].map(([type, v]) => ({ type, ...v })),
+    };
+  });
+
+  res.json(feedItems);
 });
 
 export default router;

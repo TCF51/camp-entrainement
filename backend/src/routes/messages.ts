@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AuthRequest, requireAuth } from "../middleware/auth";
+import { sendPushToUser } from "../services/notifications";
 
 const router = Router();
 router.use(requireAuth);
@@ -77,6 +78,10 @@ router.post("/", async (req: AuthRequest, res) => {
   const message = await prisma.directMessage.create({
     data: { senderId: req.userId!, recipientId, body: body.trim() },
   });
+
+  const sender = await prisma.user.findUnique({ where: { id: req.userId } });
+  const preview = body.trim().length > 80 ? `${body.trim().slice(0, 80)}…` : body.trim();
+  sendPushToUser(recipientId, `💬 Message de ${sender?.name ?? ""}`, preview).catch(() => {});
 
   res.status(201).json(message);
 });

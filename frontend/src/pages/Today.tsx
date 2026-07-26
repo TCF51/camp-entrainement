@@ -54,6 +54,8 @@ export default function Today() {
   const [sets, setSets] = useState(0);
   const [value, setValue] = useState(0);
   const [celebrating, setCelebrating] = useState<NewBadge[]>([]);
+  const [isRestToday, setIsRestToday] = useState(false);
+  const [restBusy, setRestBusy] = useState(false);
   const [runner, setRunner] = useState<
     | { type: "exercise"; item: TodayExerciseItem }
     | { type: "circuit"; item: TodayCircuitItem }
@@ -69,6 +71,28 @@ export default function Today() {
       });
   }
   useEffect(load, []);
+
+  useEffect(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    api.get<{ date: string }[]>("/rest-days").then((days) => {
+      setIsRestToday(days.some((d) => d.date.slice(0, 10) === todayKey));
+    });
+  }, []);
+
+  async function toggleRestDay() {
+    setRestBusy(true);
+    try {
+      if (isRestToday) {
+        await api.del("/rest-days");
+        setIsRestToday(false);
+      } else {
+        await api.post("/rest-days", {});
+        setIsRestToday(true);
+      }
+    } finally {
+      setRestBusy(false);
+    }
+  }
 
   function startEditing(item: TodayExerciseItem) {
     setEditingId(item.campExerciseId);
@@ -168,11 +192,32 @@ export default function Today() {
       )}
 
       <h1 className="font-display text-3xl uppercase tracking-wide mb-1">Aujourd'hui</h1>
-      <p className="text-muted text-sm mb-6">
+      <p className="text-muted text-sm mb-3">
         {total === 0
           ? "Rien de prevu aujourd'hui."
           : `${doneCount} / ${total} seance${total > 1 ? "s" : ""} validee${doneCount > 1 ? "s" : ""}.`}
       </p>
+
+      {isRestToday ? (
+        <div className="bg-success/10 border border-success rounded-xl p-3 mb-5 flex items-center justify-between gap-3">
+          <p className="text-sm">😴 Jour de repos justifie — ta serie de regularite n'est pas cassee aujourd'hui.</p>
+          <button
+            onClick={toggleRestDay}
+            disabled={restBusy}
+            className="text-xs text-muted hover:text-accent shrink-0"
+          >
+            Annuler
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={toggleRestDay}
+          disabled={restBusy}
+          className="text-xs text-muted hover:text-accent mb-5 underline decoration-dotted"
+        >
+          😴 Marquer aujourd'hui comme jour de repos (blessure, voyage...)
+        </button>
+      )}
 
       {items === null && <p className="text-muted">Chargement...</p>}
 

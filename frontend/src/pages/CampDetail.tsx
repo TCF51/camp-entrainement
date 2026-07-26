@@ -5,7 +5,18 @@ import { useAuth } from "../context/AuthContext";
 import ProgramForm, { Program } from "../components/ProgramForm";
 import CampCircuitForm, { CampCircuitData } from "../components/CampCircuitForm";
 import CircuitRunner from "../components/CircuitRunner";
+import ReactionPicker, { ReactionSummary } from "../components/ReactionPicker";
 import { secondsToMMSS } from "../lib/duration";
+
+interface FeedItem {
+  targetType: "exercise" | "circuit";
+  targetId: string;
+  userId: string;
+  userName: string;
+  label: string;
+  date: string;
+  reactions: ReactionSummary[];
+}
 
 interface CampExerciseData extends Program {
   exercise: { id: string; name: string; unit: "REPS" | "SECONDS"; description: string | null };
@@ -57,12 +68,31 @@ export default function CampDetail() {
   const [creatingCircuit, setCreatingCircuit] = useState(false);
   const [runningCircuit, setRunningCircuit] = useState<CampCircuitData | null>(null);
   const [runningExercise, setRunningExercise] = useState<CampExerciseData | null>(null);
+  const [feed, setFeed] = useState<FeedItem[] | null>(null);
+  const [duplicating, setDuplicating] = useState(false);
+
+  function loadFeed() {
+    if (!id) return;
+    api.get<FeedItem[]>(`/camps/${id}/feed`).then(setFeed);
+  }
+
+  async function duplicateCamp() {
+    if (!camp) return;
+    setDuplicating(true);
+    try {
+      const created = await api.post<{ id: string }>(`/camps/${camp.id}/duplicate`, {});
+      navigate(`/camps/${created.id}`);
+    } finally {
+      setDuplicating(false);
+    }
+  }
 
   function load() {
     if (!id) return;
     api.get<CampDetailData>(`/camps/${id}`).then(setCamp);
   }
   useEffect(load, [id]);
+  useEffect(loadFeed, [id]);
   useEffect(() => {
     api.get<CatalogExercise[]>("/exercises").then(setCatalog);
   }, []);
@@ -173,10 +203,18 @@ export default function CampDetail() {
         <Link to={`/camps/${camp.id}/classement`} className="text-sm text-accent hover:text-accentSoft">
           📊 Classement (regularite)
         </Link>
+        <Link to={`/camps/${camp.id}/calendrier`} className="text-sm text-accent hover:text-accentSoft">
+          🗓️ Calendrier
+        </Link>
         {isCoach && (
-          <button onClick={() => setConfirmingDelete(true)} className="text-sm text-muted hover:text-accent ml-auto">
-            Supprimer le camp
-          </button>
+          <>
+            <button onClick={duplicateCamp} disabled={duplicating} className="text-sm text-muted hover:text-accent">
+              {duplicating ? "Duplication..." : "Dupliquer le camp"}
+            </button>
+            <button onClick={() => setConfirmingDelete(true)} className="text-sm text-muted hover:text-accent ml-auto">
+              Supprimer le camp
+            </button>
+          </>
         )}
       </div>
 
@@ -417,6 +455,34 @@ export default function CampDetail() {
         {camp.circuits.length === 0 && !creatingCircuit && (
           <p className="text-muted text-sm italic">Aucun circuit pour l'instant.</p>
         )}
+      </div>
+
+      <h2 className="font-display uppercase tracking-wide text-lg mt-8 mb-1">Fil d'activite</h2>
+      <p className="text-muted text-sm mb-4">
+        Les dernieres seances validees par les membres du camp — pour s'encourager, pas pour comparer.
+      </p>
+      <div className="space-y-2">
+        {feed === null && <p className="text-muted text-sm">Chargement...</p>}
+        {feed?.length === 0 && <p className="text-muted text-sm italic">Aucune activite pour l'instant.</p>}
+        {feed?.map((item) => (
+          <div key={`${item.targetType}-${item.targetId}`} className="bg-surface border border-border rounded-lg p-3">
+            <p className="text-sm">
+              <span className="font-medium">{item.userName}</span> a valide{" "}
+              <span className="text-muted">{item.label}</span>
+            </p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-[10px] text-muted">
+                {new Date(item.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+              </p>
+              <ReactionPicker
+                targetType={item.targetType}
+                targetId={item.targetId}
+                reactions={item.reactions}
+                onChange={loadFeed}
+              />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

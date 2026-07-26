@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, downloadFile } from "../api/client";
 import { secondsToMMSS } from "../lib/duration";
 
 interface Stats {
@@ -24,6 +24,7 @@ function formatDuration(totalSeconds: number): string {
 export default function ActivityHistory() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [items, setItems] = useState<ActivityItem[] | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     api.get<{ stats: Stats; items: ActivityItem[] }>("/activity").then((res) => {
@@ -32,9 +33,27 @@ export default function ActivityHistory() {
     });
   }, []);
 
+  async function onExport() {
+    setExporting(true);
+    try {
+      await downloadFile("/activity/export.csv", "goteam-historique.csv");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="max-w-2xl">
-      <h1 className="font-display text-3xl uppercase tracking-wide mb-1">Mon historique</h1>
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-1">
+        <h1 className="font-display text-3xl uppercase tracking-wide">Mon historique</h1>
+        <button
+          onClick={onExport}
+          disabled={exporting}
+          className="text-sm bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-3 py-1.5 disabled:opacity-60"
+        >
+          {exporting ? "Export..." : "⬇ Exporter en CSV"}
+        </button>
+      </div>
       <p className="text-muted text-sm mb-6">Toutes tes seances, tous camps et circuits confondus.</p>
 
       {stats && (
