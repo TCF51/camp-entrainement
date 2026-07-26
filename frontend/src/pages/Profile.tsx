@@ -50,9 +50,9 @@ export default function Profile() {
         sportLevel: sportLevel || null,
       });
       await refreshUser();
-      setMessage("Profil mis a jour.");
+      setMessage("Profil mis à jour.");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Impossible de mettre a jour le profil.");
+      setError(err instanceof ApiError ? err.message : "Impossible de mettre à jour le profil.");
     } finally {
       setBusy(false);
     }
@@ -68,7 +68,7 @@ export default function Profile() {
       await api.put("/users/me", { avatarBase64: dataUrl });
       await refreshUser();
     } catch {
-      setError("Impossible de mettre a jour la photo de profil.");
+      setError("Impossible de mettre à jour la photo de profil.");
     } finally {
       setAvatarUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -106,7 +106,7 @@ export default function Profile() {
       <div className="flex items-start justify-between gap-3 mb-1">
         <h1 className="font-display text-3xl uppercase tracking-wide">Mon profil</h1>
         <button onClick={onLogout} className="text-sm text-muted hover:text-accent transition-colors shrink-0">
-          Se deconnecter
+          Se déconnecter
         </button>
       </div>
       <p className="text-muted text-sm mb-6">Ces infos sont juste pour toi, pas partagees avec les autres membres.</p>
@@ -205,7 +205,7 @@ export default function Profile() {
             onChange={(e) => setSex(e.target.value)}
             className="w-full bg-surface2 border border-border rounded-md px-3 py-2"
           >
-            <option value="">Ne souhaite pas preciser</option>
+            <option value="">Ne souhaite pas préciser</option>
             <option value="F">Femme</option>
             <option value="M">Homme</option>
             <option value="AUTRE">Autre</option>
@@ -214,7 +214,7 @@ export default function Profile() {
 
         <div>
           <label className="block text-sm text-muted mb-1" htmlFor="sport">
-            Sport / activite principale
+            Sport / activité principale
           </label>
           <select
             id="sport"
@@ -222,7 +222,7 @@ export default function Profile() {
             onChange={(e) => setSport(e.target.value)}
             className="w-full bg-surface2 border border-border rounded-md px-3 py-2"
           >
-            <option value="">Non precise</option>
+            <option value="">Non précise</option>
             {SPORTS_LIST.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -266,7 +266,7 @@ export default function Profile() {
       <div className="bg-surface border border-border rounded-xl p-6 mt-6">
         <h2 className="font-display text-lg uppercase tracking-wide mb-1">Rappels</h2>
         <p className="text-muted text-sm mb-4">
-          Active les notifications pour recevoir un rappel les jours ou une seance est prevue.
+          Active les notifications pour recevoir un rappel les jours ou une séance est prevue.
         </p>
         <button
           onClick={onEnableNotifications}
@@ -278,7 +278,7 @@ export default function Profile() {
       <div className="bg-surface border border-border rounded-xl p-6 mt-6">
         <h2 className="font-display text-lg uppercase tracking-wide mb-1">Mes badges</h2>
         <p className="text-muted text-sm mb-4">
-          Bases sur ta regularite personnelle uniquement, pas de comparaison avec les autres membres.
+          Bases sur ta régularité personnelle uniquement, pas de comparaison avec les autres membres.
         </p>
         {badges === null && <p className="text-muted text-sm">Chargement...</p>}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

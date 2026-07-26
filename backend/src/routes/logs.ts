@@ -16,8 +16,8 @@ const logSchema = z.object({
   date: z.string().optional(), // optionnel, permet de rattraper un jour passe ; defaut = aujourd'hui
 });
 
-// Enregistre (ou met a jour) la realisation d'un exercice pour une journee donnee.
-// L'idee n'est pas la performance, mais la regularite : un log = "je l'ai fait aujourd'hui".
+// Enregistre (ou met à jour) la réalisation d'un exercice pour une journée donnée.
+// L'idee n'est pas la performance, mais la régularité : un log = "je l'ai fait aujourd'hui".
 router.post("/", async (req: AuthRequest, res) => {
   const parsed = logSchema.safeParse(req.body);
   if (!parsed.success) {

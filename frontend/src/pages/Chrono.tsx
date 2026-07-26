@@ -135,7 +135,7 @@ export default function Chrono() {
       });
       if (res.newBadges?.length) setCelebrating(res.newBadges);
     } catch {
-      // meme si l'enregistrement echoue (ex: hors ligne), on ne bloque pas l'utilisateur
+      // même si l'enregistrement echoue (ex: hors ligne), on ne bloque pas l'utilisateur
     }
   }
 
@@ -173,7 +173,7 @@ export default function Chrono() {
 
       <h1 className="font-display text-3xl uppercase tracking-wide mb-1">Chronometre</h1>
       <p className="text-muted text-sm mb-4">
-        Construis ta propre seance en circuit training, ou lance simplement un chrono.
+        Construis ta propre séance en circuit training, ou lance simplement un chrono.
       </p>
 
       <div className="flex gap-1.5 mb-6">
@@ -260,7 +260,7 @@ export default function Chrono() {
               Circuit ({items.length} exercice{items.length > 1 ? "s" : ""})
             </h3>
             <div className="space-y-1.5">
-              {items.length === 0 && <p className="text-muted text-sm italic">Aucun exercice ajoute pour l'instant.</p>}
+              {items.length === 0 && <p className="text-muted text-sm italic">Aucun exercice ajouté pour l'instant.</p>}
               {items.map((item, index) => (
                 <div
                   key={item.key}
@@ -286,7 +286,7 @@ export default function Chrono() {
           </div>
 
           <div>
-            <h2 className="font-display uppercase tracking-wide text-sm mb-2">2. Reglages du circuit</h2>
+            <h2 className="font-display uppercase tracking-wide text-sm mb-2">2. Réglages du circuit</h2>
             <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
               <div>
                 <label className="block text-xs text-muted mb-1">Temps de travail (secondes)</label>
@@ -369,7 +369,7 @@ export default function Chrono() {
   );
 }
 
-// Chrono simple : un minuteur (compte a rebours) ou chronometre (compte en avant si duree = 0),
+// Chrono simple : un minuteur (compte a rebours) ou chronometre (compte en avant si durée = 0),
 // pour un usage ponctuel sans construire tout un circuit.
 function SimpleTimer() {
   const [inputMinutes, setInputMinutes] = useState(1);
@@ -437,13 +437,13 @@ function SimpleTimer() {
           onClick={applySettings}
           className="bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-4 py-2 text-sm"
         >
-          Reinitialiser
+          Réinitialiser
         </button>
       </div>
 
       <div className="bg-surface border border-border rounded-lg p-4">
         <p className="text-xs text-muted mb-2">
-          Regle une duree pour un compte a rebours, ou laisse 0:00 pour un chronometre qui compte en avant.
+          Regle une durée pour un compte a rebours, ou laisse 0:00 pour un chronometre qui compte en avant.
         </p>
         <div className="flex items-center justify-center gap-2">
           <input

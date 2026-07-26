@@ -21,7 +21,7 @@ export default function ResetPassword() {
       setMessage(res.message);
       setTimeout(() => navigate("/connexion"), 2000);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Impossible de reinitialiser le mot de passe.");
+      setError(err instanceof ApiError ? err.message : "Impossible de réinitialiser le mot de passe.");
     } finally {
       setBusy(false);
     }
@@ -39,7 +39,7 @@ export default function ResetPassword() {
 
           {!token ? (
             <p className="text-sm text-accent">
-              Lien invalide. Redemande un lien de reinitialisation depuis la page de connexion.
+              Lien invalide. Redemande un lien de réinitialisation depuis la page de connexion.
             </p>
           ) : message ? (
             <p className="text-sm text-success">{message} Redirection...</p>
@@ -58,7 +58,7 @@ export default function ResetPassword() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full bg-surface2 border border-border rounded-md px-3 py-2 text-text"
                 />
-                <p className="text-xs text-muted mt-1">8 caracteres minimum.</p>
+                <p className="text-xs text-muted mt-1">8 caractères minimum.</p>
               </div>
 
               {error && <p className="text-sm text-accent">{error}</p>}
@@ -76,7 +76,7 @@ export default function ResetPassword() {
 
         <p className="text-center text-sm text-muted mt-4">
           <Link to="/connexion" className="text-accent hover:text-accentSoft">
-            Retour a la connexion
+            Retour à la connexion
           </Link>
         </p>
       </div>

@@ -21,7 +21,7 @@ export default function Login() {
       await login(email, password);
       navigate("/aujourdhui");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Connexion impossible, reessaie.");
+      setError(err instanceof ApiError ? err.message : "Connexion impossible, réessaie.");
     } finally {
       setBusy(false);
     }
@@ -36,7 +36,7 @@ export default function Login() {
 
         <div className="bg-surface border border-border rounded-xl p-6">
           <h1 className="font-display text-2xl uppercase tracking-wide mb-1">Connexion</h1>
-          <p className="text-muted text-sm mb-6">Reprends ton entrainement la ou tu l'as laisse.</p>
+          <p className="text-muted text-sm mb-6">Reprends ton entraînement la ou tu l'as laisse.</p>
 
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
@@ -58,7 +58,7 @@ export default function Login() {
                   Mot de passe
                 </label>
                 <Link to="/mot-de-passe-oublie" className="text-xs text-accent hover:text-accentSoft">
-                  Oublie ?
+                  Oublié ?
                 </Link>
               </div>
               <input
@@ -86,7 +86,7 @@ export default function Login() {
         <p className="text-center text-sm text-muted mt-4">
           Pas encore de compte ?{" "}
           <Link to="/inscription" className="text-accent hover:text-accentSoft">
-            Cree-en un
+            Crée-en un
           </Link>
         </p>
       </div>

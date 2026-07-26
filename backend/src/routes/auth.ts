@@ -10,7 +10,7 @@ const router = Router();
 
 const registerSchema = z.object({
   email: z.string().email("Adresse email invalide."),
-  password: z.string().min(8, "Le mot de passe doit faire au moins 8 caracteres."),
+  password: z.string().min(8, "Le mot de passe doit faire au moins 8 caractères."),
   name: z.string().min(1, "Le nom est requis."),
   sport: z.string().max(100).optional().nullable(),
   sportLevel: z.enum(["LOISIR", "COMPETITION"]).optional().nullable(),
@@ -62,7 +62,7 @@ router.post("/register", async (req, res) => {
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return res.status(409).json({ error: "Un compte existe deja avec cet email." });
+    return res.status(409).json({ error: "Un compte existe déjà avec cet email." });
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -97,8 +97,8 @@ router.post("/login", async (req, res) => {
 
 const forgotSchema = z.object({ email: z.string().email() });
 
-// Demande de reinitialisation : genere un jeton valable 1h et envoie un email (si configure).
-// Repond toujours de la meme facon, que l'email existe ou non, pour ne pas reveler qui a un compte.
+// Demande de réinitialisation : généré un jeton valable 1h et envoie un email (si configure).
+// Repond toujours de la même facon, que l'email existe ou non, pour ne pas reveler qui a un compte.
 router.post("/forgot-password", async (req, res) => {
   const parsed = forgotSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -107,7 +107,7 @@ router.post("/forgot-password", async (req, res) => {
   const { email } = parsed.data;
 
   const genericResponse = {
-    message: "Si un compte existe avec cet email, un lien de reinitialisation vient d'etre envoye.",
+    message: "Si un compte existe avec cet email, un lien de réinitialisation vient d'être envoye.",
   };
 
   const user = await prisma.user.findUnique({ where: { email } });
@@ -123,8 +123,8 @@ router.post("/forgot-password", async (req, res) => {
 
   await sendEmail(
     email,
-    "Reinitialisation de ton mot de passe GoTeam",
-    `Bonjour ${user.name},\n\nClique sur ce lien pour choisir un nouveau mot de passe (valable 1 heure) :\n${resetLink}\n\nSi tu n'es pas a l'origine de cette demande, ignore simplement cet email.`
+    "Réinitialisation de ton mot de passe GoTeam",
+    `Bonjour ${user.name},\n\nClique sur ce lien pour choisir un nouveau mot de passe (valable 1 heure) :\n${resetLink}\n\nSi tu n'es pas à l'origine de cette demande, ignore simplement cet email.`
   );
 
   return res.json(genericResponse);
@@ -132,10 +132,10 @@ router.post("/forgot-password", async (req, res) => {
 
 const resetSchema = z.object({
   token: z.string().min(1),
-  newPassword: z.string().min(8, "Le mot de passe doit faire au moins 8 caracteres."),
+  newPassword: z.string().min(8, "Le mot de passe doit faire au moins 8 caractères."),
 });
 
-// Applique le nouveau mot de passe si le jeton est valide, non expire et non deja utilise
+// Applique le nouveau mot de passe si le jeton est valide, non expire et non déjà utilisé
 router.post("/reset-password", async (req, res) => {
   const parsed = resetSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -145,7 +145,7 @@ router.post("/reset-password", async (req, res) => {
 
   const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
   if (!resetToken || resetToken.used || resetToken.expiresAt.getTime() < Date.now()) {
-    return res.status(400).json({ error: "Ce lien de reinitialisation est invalide ou a expire." });
+    return res.status(400).json({ error: "Ce lien de réinitialisation est invalide ou a expire." });
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -154,7 +154,7 @@ router.post("/reset-password", async (req, res) => {
     prisma.passwordResetToken.update({ where: { id: resetToken.id }, data: { used: true } }),
   ]);
 
-  res.json({ message: "Mot de passe mis a jour, tu peux te connecter." });
+  res.json({ message: "Mot de passe mis à jour, tu peux te connecter." });
 });
 
 export default router;

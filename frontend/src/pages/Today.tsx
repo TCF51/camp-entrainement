@@ -195,12 +195,12 @@ export default function Today() {
       <p className="text-muted text-sm mb-3">
         {total === 0
           ? "Rien de prevu aujourd'hui."
-          : `${doneCount} / ${total} seance${total > 1 ? "s" : ""} validee${doneCount > 1 ? "s" : ""}.`}
+          : `${doneCount} / ${total} séance${total > 1 ? "s" : ""} validee${doneCount > 1 ? "s" : ""}.`}
       </p>
 
       {isRestToday ? (
         <div className="bg-success/10 border border-success rounded-xl p-3 mb-5 flex items-center justify-between gap-3">
-          <p className="text-sm">😴 Jour de repos justifie — ta serie de regularite n'est pas cassee aujourd'hui.</p>
+          <p className="text-sm">😴 Jour de repos justifie — ta serie de régularité n'est pas cassee aujourd'hui.</p>
           <button
             onClick={toggleRestDay}
             disabled={restBusy}
@@ -224,7 +224,7 @@ export default function Today() {
       {items?.length === 0 && circuits.length === 0 && (
         <div className="bg-surface border border-dashed border-border rounded-xl p-8 text-center">
           <p className="text-muted text-sm mb-3">
-            Aucun exercice programme pour aujourd'hui. Va voir tes camps pour rejoindre ou creer un camp.
+            Aucun exercice programmé pour aujourd'hui. Va voir tes camps pour rejoindre ou créer un camp.
           </p>
           <Link to="/camps" className="text-accent hover:text-accentSoft text-sm">
             Voir mes camps
@@ -271,7 +271,7 @@ export default function Today() {
           const canQuickChrono = item.unit === "SECONDS" && item.targetMode === "FIXED" && !item.done;
           const targetLabel =
             item.targetMode === "MAX"
-              ? `${item.targetSets} serie${item.targetSets > 1 ? "s" : ""} a fond${
+              ? `${item.targetSets} serie${item.targetSets > 1 ? "s" : ""} à fond${
                   item.personalBest
                     ? ` (record : ${item.unit === "SECONDS" ? secondsToMMSS(item.personalBest) : item.personalBest} ${unitLabel})`
                     : ""
@@ -312,7 +312,7 @@ export default function Today() {
                           ? "bg-success/20 border-success text-success"
                           : "bg-surface2 border-border text-muted hover:border-accent hover:text-accent"
                       }`}
-                      aria-label={item.done ? "Annuler la validation" : "Valider la seance"}
+                      aria-label={item.done ? "Annuler la validation" : "Valider la séance"}
                       title={item.done ? "Fait - clique pour annuler" : "Marquer comme fait"}
                     >
                       {item.done ? "✓" : ""}
@@ -323,7 +323,7 @@ export default function Today() {
 
               {item.done && item.log && (
                 <p className="text-xs text-muted mt-2">
-                  Realise : {item.log.setsDone} x{" "}
+                  Réalisé : {item.log.setsDone} x{" "}
                   {item.unit === "SECONDS" ? secondsToMMSS(item.log.valueDone) : `${item.log.valueDone} ${unitLabel}`}
                 </p>
               )}

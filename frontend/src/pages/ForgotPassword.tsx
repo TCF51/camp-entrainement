@@ -31,7 +31,7 @@ export default function ForgotPassword() {
         </div>
 
         <div className="bg-surface border border-border rounded-xl p-6">
-          <h1 className="font-display text-2xl uppercase tracking-wide mb-1">Mot de passe oublie</h1>
+          <h1 className="font-display text-2xl uppercase tracking-wide mb-1">Mot de passe oublié</h1>
           <p className="text-muted text-sm mb-6">
             Entre ton email, on t'envoie un lien pour choisir un nouveau mot de passe.
           </p>
@@ -69,7 +69,7 @@ export default function ForgotPassword() {
 
         <p className="text-center text-sm text-muted mt-4">
           <Link to="/connexion" className="text-accent hover:text-accentSoft">
-            Retour a la connexion
+            Retour à la connexion
           </Link>
         </p>
       </div>

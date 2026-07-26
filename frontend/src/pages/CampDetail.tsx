@@ -40,7 +40,10 @@ interface CatalogExercise {
   name: string;
 }
 
-const RECURRENCE_LABEL: Record<string, (p: { recurrenceType: string; daysOfWeek: string | null; intervalDays: number | null }) => string> = {
+const RECURRENCE_LABEL: Record<
+  string,
+  (p: { recurrenceType: string; daysOfWeek: string | null; intervalDays: number | null; timesPerWeek?: number | null }) => string
+> = {
   DAILY: () => "Tous les jours",
   WEEKLY: (p) => {
     const days = p.daysOfWeek ? (JSON.parse(p.daysOfWeek) as number[]) : [];
@@ -48,6 +51,7 @@ const RECURRENCE_LABEL: Record<string, (p: { recurrenceType: string; daysOfWeek:
     return days.map((d) => names[d]).join(", ");
   },
   EVERY_N_DAYS: (p) => `Tous les ${p.intervalDays} jours`,
+  WEEKLY_COUNT: (p) => `${p.timesPerWeek}x/semaine (jours libres)`,
 };
 
 const QUICK_CHRONO_REST_SECONDS = 15;
@@ -201,7 +205,7 @@ export default function CampDetail() {
           💬 Discussion du camp
         </Link>
         <Link to={`/camps/${camp.id}/classement`} className="text-sm text-accent hover:text-accentSoft">
-          📊 Classement (regularite)
+          📊 Classement (régularité)
         </Link>
         <Link to={`/camps/${camp.id}/calendrier`} className="text-sm text-accent hover:text-accentSoft">
           🗓️ Calendrier
@@ -222,7 +226,7 @@ export default function CampDetail() {
         <div className="bg-surface border border-accent rounded-lg p-4 mt-3">
           <p className="text-sm mb-3">
             Supprimer definitivement le camp "{camp.name}" ? Cette action est irreversible : l'historique des
-            seances de tous les membres pour ce camp sera perdu.
+            séances de tous les membres pour ce camp sera perdu.
           </p>
           <div className="flex gap-2">
             <button
@@ -295,8 +299,8 @@ export default function CampDetail() {
       <h2 className="font-display uppercase tracking-wide text-lg mt-8 mb-1">Exercices du camp</h2>
       <p className="text-muted text-sm mb-4">
         {isCoach
-          ? "En tant que createur du camp, tu definis la consigne (objectif, frequence) suivie par tous les membres."
-          : "Consignes definies par le createur du camp."}
+          ? "En tant que créateur du camp, tu définis la consigne (objectif, fréquence) suivie par tous les membres."
+          : "Consignes définies par le créateur du camp."}
       </p>
 
       <div className="space-y-3">
@@ -335,7 +339,7 @@ export default function CampDetail() {
                   <p className="font-medium">{ce.exercise.name}</p>
                   <p className="text-sm text-muted">
                     {ce.targetMode === "MAX"
-                      ? `${ce.targetSets} serie${ce.targetSets > 1 ? "s" : ""} a fond`
+                      ? `${ce.targetSets} serie${ce.targetSets > 1 ? "s" : ""} à fond`
                       : `${ce.targetSets} x ${valueLabel}`}{" "}
                     · {RECURRENCE_LABEL[ce.recurrenceType](ce)}
                   </p>
@@ -457,17 +461,17 @@ export default function CampDetail() {
         )}
       </div>
 
-      <h2 className="font-display uppercase tracking-wide text-lg mt-8 mb-1">Fil d'activite</h2>
+      <h2 className="font-display uppercase tracking-wide text-lg mt-8 mb-1">Fil d'activité</h2>
       <p className="text-muted text-sm mb-4">
-        Les dernieres seances validees par les membres du camp — pour s'encourager, pas pour comparer.
+        Les dernières séances validees par les membres du camp — pour s'encourager, pas pour comparer.
       </p>
       <div className="space-y-2">
         {feed === null && <p className="text-muted text-sm">Chargement...</p>}
-        {feed?.length === 0 && <p className="text-muted text-sm italic">Aucune activite pour l'instant.</p>}
+        {feed?.length === 0 && <p className="text-muted text-sm italic">Aucune activité pour l'instant.</p>}
         {feed?.map((item) => (
           <div key={`${item.targetType}-${item.targetId}`} className="bg-surface border border-border rounded-lg p-3">
             <p className="text-sm">
-              <span className="font-medium">{item.userName}</span> a valide{" "}
+              <span className="font-medium">{item.userName}</span> a validé{" "}
               <span className="text-muted">{item.label}</span>
             </p>
             <div className="flex items-center justify-between mt-2">

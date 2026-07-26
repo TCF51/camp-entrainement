@@ -25,7 +25,7 @@ export default function Register() {
       await register(email, password, name, sport || null, sportLevel || null);
       navigate("/profil");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Inscription impossible, reessaie.");
+      setError(err instanceof ApiError ? err.message : "Inscription impossible, réessaie.");
     } finally {
       setBusy(false);
     }
@@ -39,8 +39,8 @@ export default function Register() {
         </div>
 
         <div className="bg-surface border border-border rounded-xl p-6">
-          <h1 className="font-display text-2xl uppercase tracking-wide mb-1">Creer un compte</h1>
-          <p className="text-muted text-sm mb-6">Rejoins ou cree ton premier camp d'entrainement.</p>
+          <h1 className="font-display text-2xl uppercase tracking-wide mb-1">Créer un compte</h1>
+          <p className="text-muted text-sm mb-6">Rejoins ou crée ton premier camp d'entraînement.</p>
 
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
@@ -81,12 +81,12 @@ export default function Register() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-surface2 border border-border rounded-md px-3 py-2 text-text"
               />
-              <p className="text-xs text-muted mt-1">8 caracteres minimum.</p>
+              <p className="text-xs text-muted mt-1">8 caractères minimum.</p>
             </div>
 
             <div>
               <label className="block text-sm text-muted mb-1" htmlFor="sport">
-                Ton sport / activite principale (optionnel)
+                Ton sport / activité principale (optionnel)
               </label>
               <select
                 id="sport"
@@ -94,7 +94,7 @@ export default function Register() {
                 onChange={(e) => setSport(e.target.value)}
                 className="w-full bg-surface2 border border-border rounded-md px-3 py-2 text-text"
               >
-                <option value="">Je ne pratique rien en particulier / je decouvre</option>
+                <option value="">Je ne pratique rien en particulier / je découvre</option>
                 {SPORTS_LIST.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -132,15 +132,15 @@ export default function Register() {
               disabled={busy}
               className="w-full bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md py-2 disabled:opacity-60"
             >
-              {busy ? "Creation..." : "Creer mon compte"}
+              {busy ? "Création..." : "Créer mon compte"}
             </button>
           </form>
         </div>
 
         <p className="text-center text-sm text-muted mt-4">
-          Deja un compte ?{" "}
+          Déjà un compte ?{" "}
           <Link to="/connexion" className="text-accent hover:text-accentSoft">
-            Connecte-toi
+            Connecté-toi
           </Link>
         </p>
       </div>
