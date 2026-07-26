@@ -12,6 +12,8 @@ const registerSchema = z.object({
   email: z.string().email("Adresse email invalide."),
   password: z.string().min(8, "Le mot de passe doit faire au moins 8 caracteres."),
   name: z.string().min(1, "Le nom est requis."),
+  sport: z.string().max(100).optional().nullable(),
+  sportLevel: z.enum(["LOISIR", "COMPETITION"]).optional().nullable(),
 });
 
 const loginSchema = z.object({
@@ -33,6 +35,9 @@ function toPublicUser(user: {
   heightCm: number | null;
   birthDate: Date | null;
   sex: string | null;
+  sport: string | null;
+  sportLevel: string | null;
+  avatarBase64: string | null;
 }) {
   return {
     id: user.id,
@@ -42,6 +47,9 @@ function toPublicUser(user: {
     heightCm: user.heightCm,
     birthDate: user.birthDate,
     sex: user.sex,
+    sport: user.sport,
+    sportLevel: user.sportLevel,
+    avatarBase64: user.avatarBase64,
   };
 }
 
@@ -50,7 +58,7 @@ router.post("/register", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
-  const { email, password, name } = parsed.data;
+  const { email, password, name, sport, sportLevel } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -58,7 +66,9 @@ router.post("/register", async (req, res) => {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({ data: { email, passwordHash, name } });
+  const user = await prisma.user.create({
+    data: { email, passwordHash, name, sport: sport || null, sportLevel: sportLevel || null },
+  });
 
   const token = signToken(user.id);
   return res.status(201).json({ token, user: toPublicUser(user) });

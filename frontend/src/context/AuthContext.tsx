@@ -9,13 +9,22 @@ export interface UserProfile {
   heightCm: number | null;
   birthDate: string | null;
   sex: string | null;
+  sport: string | null;
+  sportLevel: string | null;
+  avatarBase64: string | null;
 }
 
 interface AuthContextValue {
   user: UserProfile | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    name: string,
+    sport?: string | null,
+    sportLevel?: string | null
+  ) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -51,11 +60,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
   }
 
-  async function register(email: string, password: string, name: string) {
+  async function register(
+    email: string,
+    password: string,
+    name: string,
+    sport?: string | null,
+    sportLevel?: string | null
+  ) {
     const res = await api.post<{ token: string; user: UserProfile }>("/auth/register", {
       email,
       password,
       name,
+      sport: sport || null,
+      sportLevel: sportLevel || null,
     });
     localStorage.setItem("token", res.token);
     setUser(res.user);

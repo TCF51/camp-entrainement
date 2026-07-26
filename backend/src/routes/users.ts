@@ -12,6 +12,11 @@ const updateSchema = z.object({
   heightCm: z.number().positive().nullable().optional(),
   birthDate: z.string().nullable().optional(), // format ISO "YYYY-MM-DD"
   sex: z.enum(["F", "M", "AUTRE"]).nullable().optional(),
+  sport: z.string().max(100).nullable().optional(),
+  sportLevel: z.enum(["LOISIR", "COMPETITION"]).nullable().optional(),
+  // data URL (ex: "data:image/jpeg;base64,...") ; limite large mais raisonnable une fois
+  // l'image redimensionnee/compressee cote client avant l'envoi.
+  avatarBase64: z.string().max(2_000_000).nullable().optional(),
 });
 
 router.get("/me", async (req: AuthRequest, res) => {

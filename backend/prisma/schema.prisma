@@ -25,6 +25,9 @@ model User {
   heightCm       Float?
   birthDate      DateTime?
   sex            String?  // "F" | "M" | "AUTRE" | null, libre / optionnel
+  sport          String?  // pratique principale, libre choix dans une liste cote frontend
+  sportLevel     String?  // "LOISIR" | "COMPETITION" | null
+  avatarBase64   String?  // photo de profil encodee en data URL (redimensionnee cote client)
   createdAt      DateTime @default(now())
 
   memberships    CampMembership[]

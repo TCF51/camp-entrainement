@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../api/client";
+import { SPORTS_LIST, SPORT_LEVELS } from "../lib/sports";
 
 export default function Register() {
   const { register, user } = useAuth();
@@ -9,6 +10,8 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [sport, setSport] = useState("");
+  const [sportLevel, setSportLevel] = useState<"LOISIR" | "COMPETITION" | "">("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -19,7 +22,7 @@ export default function Register() {
     setError(null);
     setBusy(true);
     try {
-      await register(email, password, name);
+      await register(email, password, name, sport || null, sportLevel || null);
       navigate("/profil");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Inscription impossible, reessaie.");
@@ -80,6 +83,47 @@ export default function Register() {
               />
               <p className="text-xs text-muted mt-1">8 caracteres minimum.</p>
             </div>
+
+            <div>
+              <label className="block text-sm text-muted mb-1" htmlFor="sport">
+                Ton sport / activite principale (optionnel)
+              </label>
+              <select
+                id="sport"
+                value={sport}
+                onChange={(e) => setSport(e.target.value)}
+                className="w-full bg-surface2 border border-border rounded-md px-3 py-2 text-text"
+              >
+                <option value="">Je ne pratique rien en particulier / je decouvre</option>
+                {SPORTS_LIST.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {sport && (
+              <div>
+                <label className="block text-sm text-muted mb-1">Niveau de pratique</label>
+                <div className="flex gap-2">
+                  {SPORT_LEVELS.map((lvl) => (
+                    <button
+                      type="button"
+                      key={lvl.value}
+                      onClick={() => setSportLevel(lvl.value)}
+                      className={`flex-1 text-xs px-3 py-2 rounded-md border ${
+                        sportLevel === lvl.value
+                          ? "bg-accent/20 border-accent text-text"
+                          : "bg-surface2 border-border text-muted"
+                      }`}
+                    >
+                      {lvl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {error && <p className="text-sm text-accent">{error}</p>}
 

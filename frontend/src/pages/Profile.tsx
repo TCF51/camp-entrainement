@@ -1,8 +1,10 @@
-import { FormEvent, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api, ApiError } from "../api/client";
 import { enablePushNotifications } from "../lib/push";
+import { resizeImageFile } from "../lib/image";
+import { SPORTS_LIST, SPORT_LEVELS } from "../lib/sports";
 
 interface Badge {
   key: string;
@@ -14,15 +16,20 @@ interface Badge {
 }
 
 export default function Profile() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
+  const navigate = useNavigate();
   const [weightKg, setWeightKg] = useState(user?.weightKg?.toString() ?? "");
   const [heightCm, setHeightCm] = useState(user?.heightCm?.toString() ?? "");
   const [birthDate, setBirthDate] = useState(user?.birthDate?.slice(0, 10) ?? "");
   const [sex, setSex] = useState(user?.sex ?? "");
+  const [sport, setSport] = useState(user?.sport ?? "");
+  const [sportLevel, setSportLevel] = useState(user?.sportLevel ?? "");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [badges, setBadges] = useState<Badge[] | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.get<Badge[]>("/badges").then(setBadges);
@@ -39,6 +46,8 @@ export default function Profile() {
         heightCm: heightCm ? Number(heightCm) : null,
         birthDate: birthDate || null,
         sex: sex || null,
+        sport: sport || null,
+        sportLevel: sportLevel || null,
       });
       await refreshUser();
       setMessage("Profil mis a jour.");
@@ -46,6 +55,33 @@ export default function Profile() {
       setError(err instanceof ApiError ? err.message : "Impossible de mettre a jour le profil.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    setError(null);
+    try {
+      const dataUrl = await resizeImageFile(file);
+      await api.put("/users/me", { avatarBase64: dataUrl });
+      await refreshUser();
+    } catch {
+      setError("Impossible de mettre a jour la photo de profil.");
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function removeAvatar() {
+    setAvatarUploading(true);
+    try {
+      await api.put("/users/me", { avatarBase64: null });
+      await refreshUser();
+    } finally {
+      setAvatarUploading(false);
     }
   }
 
@@ -60,9 +96,19 @@ export default function Profile() {
     }
   }
 
+  function onLogout() {
+    logout();
+    navigate("/connexion");
+  }
+
   return (
     <div className="max-w-lg">
-      <h1 className="font-display text-3xl uppercase tracking-wide mb-1">Mon profil</h1>
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <h1 className="font-display text-3xl uppercase tracking-wide">Mon profil</h1>
+        <button onClick={onLogout} className="text-sm text-muted hover:text-accent transition-colors shrink-0">
+          Se deconnecter
+        </button>
+      </div>
       <p className="text-muted text-sm mb-6">Ces infos sont juste pour toi, pas partagees avec les autres membres.</p>
 
       <div className="flex gap-2 mb-6 md:hidden">
@@ -78,6 +124,30 @@ export default function Profile() {
         >
           📈 Historique
         </Link>
+      </div>
+
+      <div className="bg-surface border border-border rounded-xl p-6 mb-6 flex items-center gap-4">
+        <div className="w-20 h-20 rounded-full bg-surface2 border border-border overflow-hidden flex items-center justify-center shrink-0">
+          {user?.avatarBase64 ? (
+            <img src={user.avatarBase64} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-2xl text-muted">{user?.name?.[0]?.toUpperCase() ?? "?"}</span>
+          )}
+        </div>
+        <div>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={onAvatarChange} className="hidden" id="avatarInput" />
+          <label
+            htmlFor="avatarInput"
+            className="inline-block cursor-pointer bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-3 py-1.5 text-sm"
+          >
+            {avatarUploading ? "..." : "Changer la photo"}
+          </label>
+          {user?.avatarBase64 && (
+            <button onClick={removeAvatar} disabled={avatarUploading} className="block text-xs text-muted hover:text-accent mt-1">
+              Retirer la photo
+            </button>
+          )}
+        </div>
       </div>
 
       <form onSubmit={onSubmit} className="bg-surface border border-border rounded-xl p-6 space-y-4">
@@ -141,6 +211,45 @@ export default function Profile() {
             <option value="AUTRE">Autre</option>
           </select>
         </div>
+
+        <div>
+          <label className="block text-sm text-muted mb-1" htmlFor="sport">
+            Sport / activite principale
+          </label>
+          <select
+            id="sport"
+            value={sport}
+            onChange={(e) => setSport(e.target.value)}
+            className="w-full bg-surface2 border border-border rounded-md px-3 py-2"
+          >
+            <option value="">Non precise</option>
+            {SPORTS_LIST.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {sport && (
+          <div>
+            <label className="block text-sm text-muted mb-1">Niveau de pratique</label>
+            <div className="flex gap-2">
+              {SPORT_LEVELS.map((lvl) => (
+                <button
+                  type="button"
+                  key={lvl.value}
+                  onClick={() => setSportLevel(lvl.value)}
+                  className={`flex-1 text-xs px-3 py-2 rounded-md border ${
+                    sportLevel === lvl.value ? "bg-accent/20 border-accent text-text" : "bg-surface2 border-border text-muted"
+                  }`}
+                >
+                  {lvl.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {message && <p className="text-sm text-success">{message}</p>}
         {error && <p className="text-sm text-accent">{error}</p>}
