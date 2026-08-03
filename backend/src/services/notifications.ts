@@ -1,9 +1,9 @@
 import cron from "node-cron";
 import webpush from "web-push";
 import { prisma } from "../lib/prisma";
-import { isDueOnDate, toDayStart } from "../utils/recurrence";
+import { isDueOnDate, toDayStart, weekStart } from "../utils/recurrence";
 
-// Configure web-push avec les cles VAPID (a generer avec `npm run vapid:generate`)
+// Configure web-push avec les clés VAPID (à générer avec `npm run vapid:generate`)
 export function initPush() {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -11,19 +11,20 @@ export function initPush() {
 
   if (!publicKey || !privateKey) {
     console.warn(
-      "[push] Cles VAPID manquantes : les notifications push sont desactivees. " +
-        "Genere-les avec `npm run vapid:generate` et renseigne .env"
+      "[push] Clés VAPID manquantes : les notifications push sont désactivées. " +
+        "Génère-les avec `npm run vapid:generate` et renseigne .env"
     );
     return;
   }
   webpush.setVapidDetails(subject, publicKey, privateKey);
-  console.log("[push] Notifications push configurees.");
+  console.log("[push] Notifications push configurées.");
 }
 
-// Verifie, pour chaque utilisateur, les exercices dus aujourd'hui (selon la consigne du camp)
-// et pas encore faits, puis envoie une notification de rappel groupee.
+// Vérifie, pour chaque utilisateur, les exercices dus aujourd'hui (selon la consigne du camp)
+// et pas encore faits, puis envoie une notification de rappel groupée.
 export async function sendDailyReminders() {
   const today = toDayStart(new Date());
+  const weekStartDate = weekStart(today);
 
   const memberships = await prisma.campMembership.findMany({
     include: {
@@ -54,6 +55,15 @@ export async function sendDailyReminders() {
       });
       if (alreadyLogged) continue;
 
+      // Pour "X fois par semaine, n'importe quel jour" : pas de rappel si le quota
+      // hebdomadaire est déjà atteint par un autre jour de la semaine.
+      if (ce.recurrenceType === "WEEKLY_COUNT" && ce.timesPerWeek) {
+        const weekCount = await prisma.exerciseLog.count({
+          where: { userId, campId: ce.campId, exerciseId: ce.exerciseId, date: { gte: weekStartDate, lte: today } },
+        });
+        if (weekCount >= ce.timesPerWeek) continue;
+      }
+
       const list = dueByUser.get(userId) || [];
       list.push({ name: ce.exercise.name });
       dueByUser.set(userId, list);
@@ -69,7 +79,7 @@ export async function sendDailyReminders() {
 
     const names = [...new Set(pending.map((p) => p.name))];
     const payload = JSON.stringify({
-      title: "C'est le moment de faire votre seance ! 💪",
+      title: "C'est le moment de faire votre séance ! 💪",
       body:
         names.length === 1
           ? `${names[0]} t'attend aujourd'hui.`
@@ -83,7 +93,7 @@ export async function sendDailyReminders() {
           payload
         );
       } catch (err: any) {
-        // Abonnement expire ou invalide : on le retire
+        // Abonnement expiré ou invalide : on le retire
         if (err.statusCode === 404 || err.statusCode === 410) {
           await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
         } else {
@@ -94,18 +104,18 @@ export async function sendDailyReminders() {
   }
 }
 
-// Planifie l'envoi quotidien a l'heure configuree (REMINDER_HOUR, defaut 18h, heure serveur)
+// Planifie l'envoi quotidien à l'heure configurée (REMINDER_HOUR, défaut 18h, heure serveur)
 export function scheduleReminders() {
   const hour = Number(process.env.REMINDER_HOUR ?? 18);
   const cronExpr = `0 ${hour} * * *`;
   cron.schedule(cronExpr, () => {
     sendDailyReminders().catch((err) => console.error("[push] Erreur lors de l'envoi des rappels :", err));
   });
-  console.log(`[push] Rappels quotidiens planifies a ${hour}h (heure serveur).`);
+  console.log(`[push] Rappels quotidiens planifiés à ${hour}h (heure serveur).`);
 }
 
-// Envoie une notification a UN utilisateur precis (tous ses appareils abonnes), avec un
-// titre/corps libres. Utilise pour prevenir d'un nouveau message (camp ou prive).
+// Envoie une notification à UN utilisateur précis (tous ses appareils abonnés), avec un
+// titre/corps libres. Utilisé pour prévenir d'un nouveau message (camp ou privé).
 export async function sendPushToUser(userId: string, title: string, body: string) {
   const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } });
   if (subscriptions.length === 0) return;

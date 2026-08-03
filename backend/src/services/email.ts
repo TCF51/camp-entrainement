@@ -1,4 +1,4 @@
-// Envoi d'email minimal. Utilise Resend (https://resend.com, offre gratuite suffisante pour
+// Envoi d'email minimal. Utilisé Resend (https://resend.com, offre gratuite suffisante pour
 // un usage personnel) si RESEND_API_KEY est configuree dans les variables d'environnement.
 // Sinon, affiche simplement le contenu dans les logs du serveur (pratique en developpement,
 // mais insuffisant en production reelle : pense a configurer RESEND_API_KEY sur Railway).

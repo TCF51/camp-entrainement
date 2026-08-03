@@ -5,7 +5,7 @@ export interface AuthRequest extends Request {
   userId?: string;
 }
 
-// Verifie le token JWT envoye dans le header "Authorization: Bearer <token>"
+// Vérifie le token JWT envoye dans le header "Authorization: Bearer <token>"
 // et attache l'id utilisateur a la requete si valide.
 export function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
