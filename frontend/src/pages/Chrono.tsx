@@ -31,7 +31,7 @@ interface FavoriteCircuit {
 }
 
 export default function Chrono() {
-  const [mode, setMode] = useState<"circuit" | "simple">("circuit");
+  const [mode, setMode] = useState<"circuit" | "minuteur" | "chronometre">("circuit");
 
   const [catalog, setCatalog] = useState<CatalogExercise[]>([]);
   const [search, setSearch] = useState("");
@@ -173,10 +173,10 @@ export default function Chrono() {
 
       <h1 className="font-display text-3xl uppercase tracking-wide mb-1">Chronometre</h1>
       <p className="text-muted text-sm mb-4">
-        Construis ta propre séance en circuit training, ou lance simplement un chrono.
+        Construis ta propre séance en circuit training, ou utilise simplement un minuteur ou un chronometre.
       </p>
 
-      <div className="flex gap-1.5 mb-6">
+      <div className="flex gap-1.5 mb-6 flex-wrap">
         <button
           onClick={() => setMode("circuit")}
           className={`px-3 py-1.5 rounded text-sm border ${
@@ -186,17 +186,27 @@ export default function Chrono() {
           Circuit training
         </button>
         <button
-          onClick={() => setMode("simple")}
+          onClick={() => setMode("minuteur")}
           className={`px-3 py-1.5 rounded text-sm border ${
-            mode === "simple" ? "bg-accent/20 border-accent text-text" : "bg-surface border-border text-muted"
+            mode === "minuteur" ? "bg-accent/20 border-accent text-text" : "bg-surface border-border text-muted"
           }`}
         >
-          Chrono simple
+          Minuteur
+        </button>
+        <button
+          onClick={() => setMode("chronometre")}
+          className={`px-3 py-1.5 rounded text-sm border ${
+            mode === "chronometre" ? "bg-accent/20 border-accent text-text" : "bg-surface border-border text-muted"
+          }`}
+        >
+          Chronometre
         </button>
       </div>
 
-      {mode === "simple" ? (
-        <SimpleTimer />
+      {mode === "minuteur" ? (
+        <MinuteurTimer />
+      ) : mode === "chronometre" ? (
+        <ChronometreTimer />
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
           <div>
@@ -369,20 +379,31 @@ export default function Chrono() {
   );
 }
 
-// Chrono simple : un minuteur (compte a rebours) ou chronometre (compte en avant si durée = 0),
-// pour un usage ponctuel sans construire tout un circuit.
-function SimpleTimer() {
+function beepShort() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    osc.frequency.value = 660;
+    osc.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+    osc.onended = () => ctx.close();
+  } catch {
+    /* pas grave si pas de son */
+  }
+}
+
+// Minuteur : compte a rebours simple depuis une durée choisie, avec bip a la fin.
+function MinuteurTimer() {
   const [inputMinutes, setInputMinutes] = useState(1);
   const [inputSeconds, setInputSeconds] = useState(0);
   const [remaining, setRemaining] = useState(60);
   const [running, setRunning] = useState(false);
-  const [countUp, setCountUp] = useState(false);
   const intervalRef = useRef<number | null>(null);
 
   function applySettings() {
-    const total = inputMinutes * 60 + inputSeconds;
-    setCountUp(total === 0);
-    setRemaining(total === 0 ? 0 : total);
+    setRemaining(inputMinutes * 60 + inputSeconds);
     setRunning(false);
   }
 
@@ -390,21 +411,9 @@ function SimpleTimer() {
     if (!running) return;
     intervalRef.current = window.setInterval(() => {
       setRemaining((r) => {
-        if (countUp) return r + 1;
         if (r <= 1) {
           setRunning(false);
-          try {
-            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-            const ctx = new AudioCtx();
-            const osc = ctx.createOscillator();
-            osc.frequency.value = 660;
-            osc.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.4);
-            osc.onended = () => ctx.close();
-          } catch {
-            /* pas grave si pas de son */
-          }
+          beepShort();
           return 0;
         }
         return r - 1;
@@ -413,7 +422,7 @@ function SimpleTimer() {
     return () => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
     };
-  }, [running, countUp]);
+  }, [running]);
 
   const mm = Math.floor(remaining / 60);
   const ss = remaining % 60;
@@ -429,7 +438,8 @@ function SimpleTimer() {
       <div className="flex justify-center gap-3 mb-6">
         <button
           onClick={() => setRunning((r) => !r)}
-          className="bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md px-5 py-2"
+          disabled={remaining === 0}
+          className="bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md px-5 py-2 disabled:opacity-50"
         >
           {running ? "Pause" : "Demarrer"}
         </button>
@@ -442,9 +452,7 @@ function SimpleTimer() {
       </div>
 
       <div className="bg-surface border border-border rounded-lg p-4">
-        <p className="text-xs text-muted mb-2">
-          Regle une durée pour un compte a rebours, ou laisse 0:00 pour un chronometre qui compte en avant.
-        </p>
+        <p className="text-xs text-muted mb-2">Regle la durée du compte a rebours.</p>
         <div className="flex items-center justify-center gap-2">
           <input
             type="number"
@@ -470,6 +478,52 @@ function SimpleTimer() {
             Appliquer
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Chronometre : compte en avant depuis 0, comme un vrai chronometre de sport.
+function ChronometreTimer() {
+  const [elapsed, setElapsed] = useState(0);
+  const [running, setRunning] = useState(false);
+  const intervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!running) return;
+    intervalRef.current = window.setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => {
+      if (intervalRef.current) window.clearInterval(intervalRef.current);
+    };
+  }, [running]);
+
+  const mm = Math.floor(elapsed / 60);
+  const ss = elapsed % 60;
+
+  return (
+    <div className="max-w-sm mx-auto text-center">
+      <div className="border-4 border-accent rounded-full w-56 h-56 mx-auto flex flex-col items-center justify-center my-6">
+        <p className="font-display text-6xl">
+          {mm}:{ss.toString().padStart(2, "0")}
+        </p>
+      </div>
+
+      <div className="flex justify-center gap-3">
+        <button
+          onClick={() => setRunning((r) => !r)}
+          className="bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md px-5 py-2"
+        >
+          {running ? "Pause" : elapsed === 0 ? "Demarrer" : "Reprendre"}
+        </button>
+        <button
+          onClick={() => {
+            setRunning(false);
+            setElapsed(0);
+          }}
+          className="bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-4 py-2 text-sm"
+        >
+          Réinitialiser
+        </button>
       </div>
     </div>
   );

@@ -28,6 +28,8 @@ model User {
   sport          String?  // pratique principale, libre choix dans une liste cote frontend
   sportLevel     String?  // "LOISIR" | "COMPETITION" | null
   avatarBase64   String?  // photo de profil encodee en data URL (redimensionnee cote client)
+  location       String?  // ville/region, libre
+  equipment      String?  // JSON array du materiel disponible (voir src/utils/equipment.ts)
   createdAt      DateTime @default(now())
 
   memberships    CampMembership[]
@@ -45,6 +47,8 @@ model User {
   favoriteCircuits FavoriteCircuit[]
   reactions      Reaction[]
   resetTokens    PasswordResetToken[]
+  sentConnections     Connection[] @relation("ConnectionRequester")
+  receivedConnections Connection[] @relation("ConnectionRecipient")
 }
 
 model Exercise {
@@ -52,6 +56,10 @@ model Exercise {
   name        String
   description String?
   unit        String       // "REPS" ou "SECONDS"
+  category    String?      // "UPPER" | "LOWER" | "ABS" | "CARDIO" | "FULL_BODY" | "MOBILITY"
+  equipment   String?      // JSON array du materiel necessaire (voir src/utils/equipment.ts) ; vide/null = aucun materiel
+  imageBase64 String?      // photo/illustration de l'exercice (redimensionnee cote client)
+  videoUrl    String?      // lien video explicatif (ex: YouTube), optionnel
   isCustom    Boolean      @default(false)
   createdById String?
   createdBy   User?        @relation("ExerciseCreator", fields: [createdById], references: [id])
@@ -90,9 +98,10 @@ model CampExercise {
   targetSets     Int      @default(3)
   targetMode     String   @default("FIXED") // "FIXED" (objectif chiffre) ou "MAX" (a fond, sans cible fixe)
   targetValue    Int?     // nombre de repetitions OU de secondes vise (voir Exercise.unit) ; inutilise si targetMode = MAX
-  recurrenceType String   @default("DAILY") // "DAILY" | "WEEKLY" | "EVERY_N_DAYS"
+  recurrenceType String   @default("DAILY") // "DAILY" | "WEEKLY" | "EVERY_N_DAYS" | "WEEKLY_COUNT"
   daysOfWeek     String?  // JSON array ex: "[1,3,5]" (0=dimanche ... 6=samedi), utilise si WEEKLY
   intervalDays   Int?     // utilise si EVERY_N_DAYS
+  timesPerWeek   Int?     // utilise si WEEKLY_COUNT (X fois par semaine, n'importe quel jour)
   startDate      DateTime @default(now())
 
   camp     Camp     @relation(fields: [campId], references: [id], onDelete: Cascade)
@@ -106,6 +115,7 @@ model CampMembership {
   id       String   @id @default(cuid())
   userId   String
   campId   String
+  role     String   @default("PLAYER") // "COACH" (ne fait pas les exercices) | "PLAYER" (participe)
   joinedAt DateTime @default(now())
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   camp     Camp     @relation(fields: [campId], references: [id], onDelete: Cascade)
@@ -210,6 +220,7 @@ model CampCircuit {
   recurrenceType   String   @default("DAILY")
   daysOfWeek       String?
   intervalDays     Int?
+  timesPerWeek     Int?
   startDate        DateTime @default(now())
 
   camp Camp             @relation(fields: [campId], references: [id], onDelete: Cascade)
@@ -290,4 +301,19 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Relation "coequipier" entre deux utilisateurs (demande + acceptation), inspiree d'une
+// demande d'ami : donne acces au profil complet (regularite, camps, badges) une fois acceptee.
+model Connection {
+  id          String   @id @default(cuid())
+  requesterId String
+  recipientId String
+  status      String   @default("PENDING") // "PENDING" | "ACCEPTED"
+  createdAt   DateTime @default(now())
+
+  requester User @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  recipient User @relation("ConnectionRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, recipientId])
 }

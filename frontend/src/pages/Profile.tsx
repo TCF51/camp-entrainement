@@ -5,6 +5,7 @@ import { api, ApiError } from "../api/client";
 import { enablePushNotifications } from "../lib/push";
 import { resizeImageFile } from "../lib/image";
 import { SPORTS_LIST, SPORT_LEVELS } from "../lib/sports";
+import { EQUIPMENT_CATALOG } from "../lib/equipment";
 
 interface Badge {
   key: string;
@@ -13,6 +14,15 @@ interface Badge {
   emoji: string;
   earned: boolean;
   earnedAt: string | null;
+}
+
+interface CampSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  role: "COACH" | "PLAYER";
+  memberCount: number;
+  exercises: string[];
 }
 
 export default function Profile() {
@@ -24,16 +34,24 @@ export default function Profile() {
   const [sex, setSex] = useState(user?.sex ?? "");
   const [sport, setSport] = useState(user?.sport ?? "");
   const [sportLevel, setSportLevel] = useState(user?.sportLevel ?? "");
+  const [location, setLocation] = useState(user?.location ?? "");
+  const [equipment, setEquipment] = useState<string[]>(user?.equipment ? JSON.parse(user.equipment) : []);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [badges, setBadges] = useState<Badge[] | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [summary, setSummary] = useState<{ overallRegularityRate: number | null; camps: CampSummary[] } | null>(null);
 
   useEffect(() => {
     api.get<Badge[]>("/badges").then(setBadges);
+    api.get<{ overallRegularityRate: number | null; camps: CampSummary[] }>("/users/me/summary").then(setSummary);
   }, []);
+
+  function toggleEquipment(key: string) {
+    setEquipment((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -48,6 +66,8 @@ export default function Profile() {
         sex: sex || null,
         sport: sport || null,
         sportLevel: sportLevel || null,
+        location: location.trim() || null,
+        equipment: equipment.length > 0 ? equipment : null,
       });
       await refreshUser();
       setMessage("Profil mis à jour.");
@@ -125,6 +145,13 @@ export default function Profile() {
           📈 Historique
         </Link>
       </div>
+
+      <Link
+        to="/coequipiers"
+        className="block mb-6 text-center bg-surface2 hover:bg-border transition-colors border border-border rounded-md px-3 py-2 text-sm"
+      >
+        🤝 Mes coequipiers
+      </Link>
 
       <div className="bg-surface border border-border rounded-xl p-6 mb-6 flex items-center gap-4">
         <div className="w-20 h-20 rounded-full bg-surface2 border border-border overflow-hidden flex items-center justify-center shrink-0">
@@ -251,6 +278,37 @@ export default function Profile() {
           </div>
         )}
 
+        <div>
+          <label className="block text-sm text-muted mb-1" htmlFor="location">
+            Localisation (optionnel)
+          </label>
+          <input
+            id="location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Ex : Angers"
+            className="w-full bg-surface2 border border-border rounded-md px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-muted mb-2">Materiel dont je dispose</label>
+          <div className="flex flex-wrap gap-1.5">
+            {EQUIPMENT_CATALOG.map((eq) => (
+              <button
+                type="button"
+                key={eq.key}
+                onClick={() => toggleEquipment(eq.key)}
+                className={`text-xs px-2.5 py-1.5 rounded-md border ${
+                  equipment.includes(eq.key) ? "bg-accent/20 border-accent text-text" : "bg-surface2 border-border text-muted"
+                }`}
+              >
+                {eq.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {message && <p className="text-sm text-success">{message}</p>}
         {error && <p className="text-sm text-accent">{error}</p>}
 
@@ -275,6 +333,40 @@ export default function Profile() {
           Activer les notifications
         </button>
       </div>
+      <div className="bg-surface border border-border rounded-xl p-6 mt-6">
+        <h2 className="font-display text-lg uppercase tracking-wide mb-1">Mes camps</h2>
+        <p className="text-muted text-sm mb-4">
+          Taux de régularité global
+          {summary?.overallRegularityRate != null ? (
+            <span className="text-accent font-semibold"> · {summary.overallRegularityRate}%</span>
+          ) : (
+            <span className="italic"> · pas encore assez de recul</span>
+          )}
+        </p>
+        {summary === null && <p className="text-muted text-sm">Chargement...</p>}
+        {summary?.camps.length === 0 && <p className="text-muted text-sm italic">Aucun camp pour l'instant.</p>}
+        <div className="space-y-2">
+          {summary?.camps.map((c) => (
+            <Link
+              key={c.id}
+              to={`/camps/${c.id}`}
+              className="block bg-surface2 hover:bg-border transition-colors border border-border rounded-md p-3"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">{c.name}</p>
+                <span className="text-[10px] uppercase tracking-wide text-muted">
+                  {c.role === "COACH" ? "Entraineur" : "Coequipier"}
+                </span>
+              </div>
+              {c.description && <p className="text-xs text-muted italic mt-0.5">"{c.description}"</p>}
+              <p className="text-xs text-muted mt-1">
+                {c.memberCount} membre{c.memberCount > 1 ? "s" : ""} · {c.exercises.join(", ")}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </div>
+
       <div className="bg-surface border border-border rounded-xl p-6 mt-6">
         <h2 className="font-display text-lg uppercase tracking-wide mb-1">Mes badges</h2>
         <p className="text-muted text-sm mb-4">

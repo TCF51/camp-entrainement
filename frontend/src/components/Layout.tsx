@@ -8,6 +8,7 @@ const desktopNavItems = [
   { to: "/chrono", label: "Chrono" },
   { to: "/exercices", label: "Exercices" },
   { to: "/messages", label: "Messages" },
+  { to: "/coequipiers", label: "Coequipiers" },
   { to: "/historique", label: "Historique" },
   { to: "/profil", label: "Profil" },
 ];
@@ -61,7 +62,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             }}
             className="text-sm text-muted hover:text-accent transition-colors"
           >
-            Se deconnecter
+            Se déconnecter
           </button>
         </div>
       </header>

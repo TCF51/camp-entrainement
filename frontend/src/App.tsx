@@ -21,6 +21,8 @@ import ActivityHistory from "./pages/ActivityHistory";
 import CampCalendar from "./pages/CampCalendar";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Teammates from "./pages/Teammates";
+import PublicProfile from "./pages/PublicProfile";
 
 function Private({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -51,6 +53,8 @@ export default function App() {
       <Route path="/chrono" element={<Private><Chrono /></Private>} />
       <Route path="/historique" element={<Private><ActivityHistory /></Private>} />
       <Route path="/messages" element={<Private><Messages /></Private>} />
+      <Route path="/coequipiers" element={<Private><Teammates /></Private>} />
+      <Route path="/profil/:userId" element={<Private><PublicProfile /></Private>} />
 
       <Route path="*" element={<Navigate to="/aujourdhui" replace />} />
     </Routes>

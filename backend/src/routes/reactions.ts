@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AuthRequest, requireAuth } from "../middleware/auth";
 import { REACTION_CATALOG, REACTION_KEYS } from "../utils/reactions";
+import { sendPushToUser } from "../services/notifications";
 
 const router = Router();
 router.use(requireAuth);
@@ -17,7 +18,7 @@ const toggleSchema = z.object({
   type: z.enum(REACTION_KEYS as [string, ...string[]]),
 });
 
-// Ajoute ou retire une reaction (bascule) sur une seance validee par un membre du meme camp.
+// Ajoute ou retire une reaction (bascule) sur une séance validee par un membre du même camp.
 router.post("/", async (req: AuthRequest, res) => {
   const parsed = toggleSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -25,17 +26,20 @@ router.post("/", async (req: AuthRequest, res) => {
   }
   const { targetType, targetId, type } = parsed.data;
 
-  // Verifie que la cible existe et recupere son camp, pour s'assurer que l'utilisateur
-  // en est bien membre (on ne peut reagir qu'aux seances de ses propres camps).
+  // Vérifie que la cible existe et recupere son camp, pour s'assurer que l'utilisateur
+  // en est bien membre (on ne peut reagir qu'aux séances de ses propres camps).
   let campId: string | null = null;
+  let ownerId: string | null = null;
   if (targetType === "exercise") {
     const log = await prisma.exerciseLog.findUnique({ where: { id: targetId } });
     campId = log?.campId ?? null;
+    ownerId = log?.userId ?? null;
   } else {
     const log = await prisma.campCircuitLog.findUnique({ where: { id: targetId } });
     campId = log?.campId ?? null;
+    ownerId = log?.userId ?? null;
   }
-  if (!campId) return res.status(404).json({ error: "Seance introuvable." });
+  if (!campId) return res.status(404).json({ error: "Séance introuvable." });
 
   const membership = await prisma.campMembership.findUnique({
     where: { userId_campId: { userId: req.userId!, campId } },
@@ -52,6 +56,17 @@ router.post("/", async (req: AuthRequest, res) => {
   }
 
   await prisma.reaction.create({ data: { userId: req.userId!, targetType, targetId, type } });
+
+  if (ownerId && ownerId !== req.userId) {
+    const def = REACTION_CATALOG.find((r) => r.key === type);
+    const me = await prisma.user.findUnique({ where: { id: req.userId } });
+    sendPushToUser(
+      ownerId,
+      `${def?.emoji ?? "👏"} Nouvelle reaction`,
+      `${me?.name ?? "Quelqu'un"} a reagi a ta séance (${def?.label ?? type}).`
+    ).catch(() => {});
+  }
+
   res.status(201).json({ active: true });
 });
 

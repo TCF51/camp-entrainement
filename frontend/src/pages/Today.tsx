@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import DurationInput from "../components/DurationInput";
 import CircuitRunner from "../components/CircuitRunner";
+import ExerciseMediaModal from "../components/ExerciseMediaModal";
 import { secondsToMMSS } from "../lib/duration";
 
 interface TodayExerciseItem {
@@ -14,6 +15,8 @@ interface TodayExerciseItem {
   exerciseName: string;
   description: string | null;
   unit: "REPS" | "SECONDS";
+  imageBase64: string | null;
+  videoUrl: string | null;
   targetSets: number;
   targetMode: "FIXED" | "MAX";
   targetValue: number | null;
@@ -47,15 +50,30 @@ interface NewBadge {
 // Repos par defaut entre chaque serie lors d'un chrono rapide lance sur un seul exercice
 const QUICK_CHRONO_REST_SECONDS = 15;
 
+function targetLabelFor(item: TodayExerciseItem): string {
+  const unitLabel = item.unit === "REPS" ? "reps" : "sec";
+  return item.targetMode === "MAX"
+    ? `${item.targetSets} serie${item.targetSets > 1 ? "s" : ""} à fond${
+        item.personalBest
+          ? ` (record : ${item.unit === "SECONDS" ? secondsToMMSS(item.personalBest) : item.personalBest} ${unitLabel})`
+          : ""
+      }`
+    : `${item.targetSets} x ${
+        item.unit === "SECONDS" && item.targetValue ? secondsToMMSS(item.targetValue) : item.targetValue
+      } ${item.unit === "SECONDS" ? "" : unitLabel}`;
+}
+
 export default function Today() {
   const [items, setItems] = useState<TodayExerciseItem[] | null>(null);
   const [circuits, setCircuits] = useState<TodayCircuitItem[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null); // campExerciseId (simple) ou exerciseId (groupe)
+  const [selectedCampIds, setSelectedCampIds] = useState<string[]>([]);
   const [sets, setSets] = useState(0);
   const [value, setValue] = useState(0);
   const [celebrating, setCelebrating] = useState<NewBadge[]>([]);
   const [isRestToday, setIsRestToday] = useState(false);
   const [restBusy, setRestBusy] = useState(false);
+  const [viewingMedia, setViewingMedia] = useState<TodayExerciseItem | null>(null);
   const [runner, setRunner] = useState<
     | { type: "exercise"; item: TodayExerciseItem }
     | { type: "circuit"; item: TodayCircuitItem }
@@ -94,16 +112,42 @@ export default function Today() {
     }
   }
 
-  function startEditing(item: TodayExerciseItem) {
+  // Regroupe les exercices identiques (meme exerciseId) presents dans plusieurs camps,
+  // pour proposer une validation combinee plutot que deux cartes separees.
+  const groups = useMemo(() => {
+    const map = new Map<string, TodayExerciseItem[]>();
+    items?.forEach((item) => {
+      const arr = map.get(item.exerciseId) ?? [];
+      arr.push(item);
+      map.set(item.exerciseId, arr);
+    });
+    return [...map.values()];
+  }, [items]);
+
+  function startEditingSingle(item: TodayExerciseItem) {
     setEditingId(item.campExerciseId);
+    setSelectedCampIds([item.campId]);
     setSets(item.log?.setsDone ?? item.targetSets);
     setValue(item.log?.valueDone ?? item.targetValue ?? item.personalBest ?? 0);
   }
 
-  async function confirm(item: TodayExerciseItem) {
+  function startEditingGroup(group: TodayExerciseItem[]) {
+    const notDone = group.filter((i) => !i.done);
+    setEditingId(group[0].exerciseId);
+    setSelectedCampIds(notDone.map((i) => i.campId));
+    const ref = notDone[0] ?? group[0];
+    setSets(ref.targetSets);
+    setValue(ref.targetValue ?? ref.personalBest ?? 0);
+  }
+
+  async function confirmCampIds(exerciseId: string, campIds: string[]) {
+    if (campIds.length === 0) {
+      setEditingId(null);
+      return;
+    }
     const res = await api.post<{ newBadges: NewBadge[] }>("/logs", {
-      campId: item.campId,
-      exerciseId: item.exerciseId,
+      campIds,
+      exerciseId,
       setsDone: sets,
       valueDone: value,
     });
@@ -177,6 +221,15 @@ export default function Today() {
 
   return (
     <div className="max-w-xl">
+      {viewingMedia && (
+        <ExerciseMediaModal
+          name={viewingMedia.exerciseName}
+          imageBase64={viewingMedia.imageBase64}
+          videoUrl={viewingMedia.videoUrl}
+          onClose={() => setViewingMedia(null)}
+        />
+      )}
+
       {celebrating.length > 0 && (
         <div className="bg-accent/10 border border-accent rounded-xl p-4 mb-5">
           {celebrating.map((b) => (
@@ -265,104 +318,145 @@ export default function Today() {
       )}
 
       <div className="space-y-3">
-        {items?.map((item) => {
-          const unitLabel = item.unit === "REPS" ? "reps" : "sec";
-          const isEditing = editingId === item.campExerciseId;
-          const canQuickChrono = item.unit === "SECONDS" && item.targetMode === "FIXED" && !item.done;
-          const targetLabel =
-            item.targetMode === "MAX"
-              ? `${item.targetSets} serie${item.targetSets > 1 ? "s" : ""} à fond${
-                  item.personalBest
-                    ? ` (record : ${item.unit === "SECONDS" ? secondsToMMSS(item.personalBest) : item.personalBest} ${unitLabel})`
-                    : ""
-                }`
-              : `${item.targetSets} x ${item.unit === "SECONDS" && item.targetValue ? secondsToMMSS(item.targetValue) : item.targetValue} ${item.unit === "SECONDS" ? "" : unitLabel}`;
+        {groups.map((group) => {
+          const first = group[0];
+          const isGrouped = group.length > 1;
+          const unitLabel = first.unit === "REPS" ? "reps" : "sec";
+          const hasMedia = !!(first.imageBase64 || first.videoUrl);
+          const allDone = group.every((i) => i.done);
+          const isEditing = editingId === (isGrouped ? first.exerciseId : first.campExerciseId);
+          const canQuickChrono = !isGrouped && first.unit === "SECONDS" && first.targetMode === "FIXED" && !first.done;
 
           return (
             <div
-              key={item.campExerciseId}
+              key={first.exerciseId}
               className={`bg-surface border rounded-xl p-4 transition-colors ${
-                item.done ? "border-success/50" : "border-border"
+                allDone ? "border-success/50" : "border-border"
               }`}
             >
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
-                  <p className="font-medium">{item.exerciseName}</p>
-                  <p className="text-xs text-muted">
-                    {item.campName} · objectif {targetLabel}
-                  </p>
-                  {item.description && <p className="text-xs text-muted italic mt-0.5">"{item.description}"</p>}
+                  <button
+                    onClick={() => hasMedia && setViewingMedia(first)}
+                    className={`font-medium text-left ${hasMedia ? "underline decoration-dotted hover:text-accent" : ""}`}
+                    title={hasMedia ? "Voir la photo/video de l'exercice" : undefined}
+                  >
+                    {first.exerciseName} {hasMedia && "📷"}
+                  </button>
+                  {!isGrouped ? (
+                    <p className="text-xs text-muted">
+                      {first.campName} · objectif {targetLabelFor(first)}
+                    </p>
+                  ) : (
+                    <div className="text-xs text-muted space-y-0.5">
+                      {group.map((i) => (
+                        <p key={i.campId}>
+                          {i.done ? "✓ " : ""}
+                          {i.campName} · {targetLabelFor(i)}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {first.description && <p className="text-xs text-muted italic mt-0.5">"{first.description}"</p>}
                 </div>
 
                 {!isEditing && (
                   <div className="flex items-center gap-2 shrink-0">
                     {canQuickChrono && (
                       <button
-                        onClick={() => setRunner({ type: "exercise", item })}
+                        onClick={() => setRunner({ type: "exercise", item: first })}
                         title="Lancer le chrono pour cet exercice"
                         className="w-10 h-10 rounded-full flex items-center justify-center border-2 border-accent text-accent hover:bg-accent/10"
                       >
                         ⏱
                       </button>
                     )}
-                    <button
-                      onClick={() => (item.done ? undo(item) : startEditing(item))}
-                      className={`stamp-btn w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 ${
-                        item.done
-                          ? "bg-success/20 border-success text-success"
-                          : "bg-surface2 border-border text-muted hover:border-accent hover:text-accent"
-                      }`}
-                      aria-label={item.done ? "Annuler la validation" : "Valider la séance"}
-                      title={item.done ? "Fait - clique pour annuler" : "Marquer comme fait"}
-                    >
-                      {item.done ? "✓" : ""}
-                    </button>
+                    {allDone ? (
+                      <button
+                        onClick={() => undo(first)}
+                        className="stamp-btn w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 bg-success/20 border-success text-success"
+                        title="Fait - clique pour annuler"
+                      >
+                        ✓
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => (isGrouped ? startEditingGroup(group) : startEditingSingle(first))}
+                        className="stamp-btn w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 bg-surface2 border-border text-muted hover:border-accent hover:text-accent"
+                        title="Marquer comme fait"
+                      />
+                    )}
                   </div>
                 )}
               </div>
 
-              {item.done && item.log && (
+              {!isGrouped && first.done && first.log && (
                 <p className="text-xs text-muted mt-2">
-                  Réalisé : {item.log.setsDone} x{" "}
-                  {item.unit === "SECONDS" ? secondsToMMSS(item.log.valueDone) : `${item.log.valueDone} ${unitLabel}`}
+                  Réalisé : {first.log.setsDone} x{" "}
+                  {first.unit === "SECONDS" ? secondsToMMSS(first.log.valueDone) : `${first.log.valueDone} ${unitLabel}`}
                 </p>
               )}
 
               {isEditing && (
-                <div className="mt-3 flex items-end gap-3 flex-wrap bg-surface2 border border-border rounded-md p-3">
-                  <div>
-                    <label className="block text-xs text-muted mb-1">Series faites</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={sets}
-                      onChange={(e) => setSets(Number(e.target.value))}
-                      className="w-20 bg-surface border border-border rounded-md px-2 py-1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-muted mb-1">{unitLabel} par serie</label>
-                    {item.unit === "SECONDS" ? (
-                      <DurationInput totalSeconds={value} onChange={setValue} />
-                    ) : (
+                <div className="mt-3 bg-surface2 border border-border rounded-md p-3 space-y-3">
+                  {isGrouped && (
+                    <div>
+                      <p className="text-xs text-muted mb-1">Valider pour :</p>
+                      <div className="flex flex-wrap gap-2">
+                        {group
+                          .filter((i) => !i.done)
+                          .map((i) => (
+                            <label key={i.campId} className="flex items-center gap-1.5 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={selectedCampIds.includes(i.campId)}
+                                onChange={(e) =>
+                                  setSelectedCampIds((prev) =>
+                                    e.target.checked ? [...prev, i.campId] : prev.filter((c) => c !== i.campId)
+                                  )
+                                }
+                              />
+                              {i.campName}
+                            </label>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-end gap-3 flex-wrap">
+                    <div>
+                      <label className="block text-xs text-muted mb-1">Series faites</label>
                       <input
                         type="number"
                         min={0}
-                        value={value}
-                        onChange={(e) => setValue(Number(e.target.value))}
+                        value={sets}
+                        onChange={(e) => setSets(Number(e.target.value))}
                         className="w-20 bg-surface border border-border rounded-md px-2 py-1"
                       />
-                    )}
+                    </div>
+                    <div>
+                      <label className="block text-xs text-muted mb-1">{unitLabel} par serie</label>
+                      {first.unit === "SECONDS" ? (
+                        <DurationInput totalSeconds={value} onChange={setValue} />
+                      ) : (
+                        <input
+                          type="number"
+                          min={0}
+                          value={value}
+                          onChange={(e) => setValue(Number(e.target.value))}
+                          className="w-20 bg-surface border border-border rounded-md px-2 py-1"
+                        />
+                      )}
+                    </div>
+                    <button
+                      onClick={() => confirmCampIds(first.exerciseId, selectedCampIds)}
+                      className="bg-accent text-bg font-semibold rounded-md px-4 py-1.5 text-sm"
+                    >
+                      Valider
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="text-muted text-sm px-2">
+                      Annuler
+                    </button>
                   </div>
-                  <button
-                    onClick={() => confirm(item)}
-                    className="bg-accent text-bg font-semibold rounded-md px-4 py-1.5 text-sm"
-                  >
-                    Valider
-                  </button>
-                  <button onClick={() => setEditingId(null)} className="text-muted text-sm px-2">
-                    Annuler
-                  </button>
                 </div>
               )}
             </div>

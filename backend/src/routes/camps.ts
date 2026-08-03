@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AuthRequest, requireAuth } from "../middleware/auth";
 import { generateCampCode } from "../utils/code";
-import { isDueOnDate, toDayStart } from "../utils/recurrence";
+import { isDueOnDate, toDayStart, computeWeeklyDueDone } from "../utils/recurrence";
 
 const router = Router();
 router.use(requireAuth);
@@ -14,22 +14,24 @@ const createCampSchema = z.object({
   exerciseIds: z.array(z.string()).min(1, "Selectionne au moins un exercice."),
   startDate: z.string().optional().nullable(), // format ISO "YYYY-MM-DD"
   endDate: z.string().optional().nullable(),
+  creatorRole: z.enum(["COACH", "PLAYER"]).optional(), // "COACH" = ne fait pas les exercices lui-meme
 });
 
-// Cree un camp : choix d'un ensemble d'exercices, generation d'un code d'invitation.
-// Le createur devient automatiquement membre du camp.
+// Créé un camp : choix d'un ensemble d'exercices, generation d'un code d'invitation.
+// Le créateur devient automatiquement membre du camp, avec le role qu'il choisit
+// ("entraineur" = ne fait pas les exercices, "coequipier" = les fait aussi).
 router.post("/", async (req: AuthRequest, res) => {
   const parsed = createCampSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
-  const { name, description, exerciseIds, startDate, endDate } = parsed.data;
+  const { name, description, exerciseIds, startDate, endDate, creatorRole } = parsed.data;
 
   if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
-    return res.status(400).json({ error: "La date de fin doit etre apres la date de debut." });
+    return res.status(400).json({ error: "La date de fin doit être après la date de debut." });
   }
 
-  // On genere un code unique (tres faible probabilite de collision, on retente si besoin)
+  // On généré un code unique (très faible probabilite de collision, on retente si besoin)
   let code = generateCampCode();
   for (let attempt = 0; attempt < 5; attempt++) {
     const clash = await prisma.camp.findUnique({ where: { code } });
@@ -46,7 +48,7 @@ router.post("/", async (req: AuthRequest, res) => {
       startDate: startDate ? new Date(startDate) : null,
       endDate: endDate ? new Date(endDate) : null,
       exercises: { create: exerciseIds.map((exerciseId) => ({ exerciseId })) },
-      members: { create: [{ userId: req.userId! }] },
+      members: { create: [{ userId: req.userId!, role: creatorRole === "COACH" ? "COACH" : "PLAYER" }] },
     },
     include: { exercises: { include: { exercise: true } }, members: true },
   });
@@ -55,6 +57,34 @@ router.post("/", async (req: AuthRequest, res) => {
 });
 
 const joinSchema = z.object({ code: z.string().min(1) });
+
+// Apercu d'un camp par son code, SANS le rejoindre : permet de verifier le materiel
+// necessaire avant de s'inscrire (le materiel manquant n'empeche pas de forcer l'inscription).
+router.get("/preview", async (req: AuthRequest, res) => {
+  const code = ((req.query.code as string) || "").trim().toUpperCase();
+  if (!code) return res.status(400).json({ error: "Code requis." });
+
+  const camp = await prisma.camp.findUnique({
+    where: { code },
+    include: { exercises: { include: { exercise: true } }, _count: { select: { members: true } } },
+  });
+  if (!camp) return res.status(404).json({ error: "Aucun camp ne correspond a ce code." });
+
+  const requiredEquipment = [
+    ...new Set(
+      camp.exercises.flatMap((ce) => (ce.exercise.equipment ? (JSON.parse(ce.exercise.equipment) as string[]) : []))
+    ),
+  ];
+
+  res.json({
+    id: camp.id,
+    name: camp.name,
+    description: camp.description,
+    memberCount: camp._count.members,
+    exerciseNames: camp.exercises.map((ce) => ce.exercise.name),
+    requiredEquipment,
+  });
+});
 
 // Rejoint un camp existant via son code d'invitation
 router.post("/join", async (req: AuthRequest, res) => {
@@ -73,7 +103,7 @@ router.post("/join", async (req: AuthRequest, res) => {
     where: { userId_campId: { userId: req.userId!, campId: camp.id } },
   });
   if (existing) {
-    return res.status(200).json({ message: "Tu es deja membre de ce camp.", campId: camp.id });
+    return res.status(200).json({ message: "Tu es déjà membre de ce camp.", campId: camp.id });
   }
 
   await prisma.campMembership.create({ data: { userId: req.userId!, campId: camp.id } });
@@ -94,10 +124,17 @@ router.get("/mine", async (req: AuthRequest, res) => {
     },
     orderBy: { joinedAt: "desc" },
   });
-  res.json(memberships.map((m) => m.camp));
+  const today = toDayStart(new Date());
+  res.json(
+    memberships.map((m) => ({
+      ...m.camp,
+      isEnded: !!(m.camp.endDate && today.getTime() > toDayStart(m.camp.endDate).getTime()),
+      myRole: m.role,
+    }))
+  );
 });
 
-// Detail d'un camp (verifie que l'utilisateur en est bien membre)
+// Detail d'un camp (vérifie que l'utilisateur en est bien membre)
 router.get("/:id", async (req: AuthRequest, res) => {
   const membership = await prisma.campMembership.findUnique({
     where: { userId_campId: { userId: req.userId!, campId: req.params.id } },
@@ -115,7 +152,9 @@ router.get("/:id", async (req: AuthRequest, res) => {
     },
   });
   if (!camp) return res.status(404).json({ error: "Camp introuvable." });
-  res.json(camp);
+
+  const isEnded = !!(camp.endDate && toDayStart(new Date()).getTime() > toDayStart(camp.endDate).getTime());
+  res.json({ ...camp, isEnded, myRole: membership.role });
 });
 
 const updateCampSchema = z.object({
@@ -123,12 +162,12 @@ const updateCampSchema = z.object({
   description: z.string().max(500).optional().nullable(),
 });
 
-// Modifie le nom/descriptif d'un camp : reserve au createur du camp
+// Modifie le nom/descriptif d'un camp : réservé au créateur du camp
 router.put("/:id", async (req: AuthRequest, res) => {
   const camp = await prisma.camp.findUnique({ where: { id: req.params.id } });
   if (!camp) return res.status(404).json({ error: "Camp introuvable." });
   if (camp.createdById !== req.userId) {
-    return res.status(403).json({ error: "Seul le createur du camp peut le modifier." });
+    return res.status(403).json({ error: "Seul le créateur du camp peut le modifier." });
   }
 
   const parsed = updateCampSchema.safeParse(req.body);
@@ -143,22 +182,22 @@ router.put("/:id", async (req: AuthRequest, res) => {
   res.json(updated);
 });
 
-// Supprime definitivement un camp : reserve au createur du camp.
+// Supprime definitivement un camp : réservé au créateur du camp.
 // Supprime aussi en cascade les exercices du camp, les adhesions, les logs et les messages associes.
 router.delete("/:id", async (req: AuthRequest, res) => {
   const camp = await prisma.camp.findUnique({ where: { id: req.params.id } });
   if (!camp) return res.status(404).json({ error: "Camp introuvable." });
   if (camp.createdById !== req.userId) {
-    return res.status(403).json({ error: "Seul le createur du camp peut le supprimer." });
+    return res.status(403).json({ error: "Seul le créateur du camp peut le supprimer." });
   }
 
   await prisma.camp.delete({ where: { id: req.params.id } });
   res.status(204).send();
 });
 
-// Classement des membres du camp base UNIQUEMENT sur leur regularite personnelle
-// (taux de seances realisees par rapport aux seances dues, et jours consecutifs) --
-// jamais sur les performances (poids, repetitions, etc.).
+// Classement des membres du camp base UNIQUEMENT sur leur régularité personnelle
+// (taux de séances réalisées par rapport aux séances dues, et jours consecutifs) --
+// jamais sur les performances (poids, répétitions, etc.).
 router.get("/:id/leaderboard", async (req: AuthRequest, res) => {
   const campId = req.params.id;
   const membership = await prisma.campMembership.findUnique({
@@ -179,6 +218,8 @@ router.get("/:id/leaderboard", async (req: AuthRequest, res) => {
   const results = [];
 
   for (const member of camp.members) {
+    if (member.role === "COACH") continue; // n'a pas d'obligation de pratique, pas classe
+
     const logs = await prisma.exerciseLog.findMany({
       where: { userId: member.userId, campId },
       select: { date: true },
@@ -193,6 +234,14 @@ router.get("/:id/leaderboard", async (req: AuthRequest, res) => {
       const effectiveStart = toDayStart(
         new Date(Math.max(new Date(ce.startDate).getTime(), new Date(member.joinedAt).getTime()))
       );
+
+      if (ce.recurrenceType === "WEEKLY_COUNT" && ce.timesPerWeek) {
+        const weekly = computeWeeklyDueDone(ce.timesPerWeek, effectiveStart, completedDates, today);
+        dueCount += weekly.dueCount;
+        doneCount += weekly.doneCount;
+        continue;
+      }
+
       const cursor = new Date(effectiveStart);
       while (cursor.getTime() <= today.getTime()) {
         const key = cursor.toISOString().slice(0, 10);
@@ -206,7 +255,7 @@ router.get("/:id/leaderboard", async (req: AuthRequest, res) => {
     const regularityRate = dueCount > 0 ? Math.round((doneCount / dueCount) * 100) : 0;
 
     // Streak propre a ce camp : jours consecutifs (en remontant depuis aujourd'hui/hier)
-    // avec au moins une seance validee dans ce camp. Les jours de repos justifie sont neutres.
+    // avec au moins une séance validee dans ce camp. Les jours de repos justifie sont neutres.
     let streak = 0;
     const cursor2 = toDayStart(today);
     if (!completedDates.has(cursor2.toISOString().slice(0, 10)) && !restDates.has(cursor2.toISOString().slice(0, 10))) {
@@ -238,7 +287,7 @@ router.get("/:id/leaderboard", async (req: AuthRequest, res) => {
 });
 
 // Duplique un camp (nom, descriptif, exercices et circuits avec leurs consignes) pour
-// relancer une nouvelle "saison" sans tout reconfigurer. Reserve au createur du camp.
+// relancer une nouvelle "saison" sans tout reconfigurer. Réservé au créateur du camp.
 // Les membres, l'historique et les messages ne sont PAS copies.
 router.post("/:id/duplicate", async (req: AuthRequest, res) => {
   const original = await prisma.camp.findUnique({
@@ -247,7 +296,7 @@ router.post("/:id/duplicate", async (req: AuthRequest, res) => {
   });
   if (!original) return res.status(404).json({ error: "Camp introuvable." });
   if (original.createdById !== req.userId) {
-    return res.status(403).json({ error: "Seul le createur du camp peut le dupliquer." });
+    return res.status(403).json({ error: "Seul le créateur du camp peut le dupliquer." });
   }
 
   let code = generateCampCode();
@@ -347,7 +396,7 @@ router.get("/:id/calendar", async (req: AuthRequest, res) => {
   res.json({ month: monthParam, days });
 });
 
-// Fil d'activite du camp : dernieres seances validees par tous les membres (avec reactions),
+// Fil d'activité du camp : dernières séances validees par tous les membres (avec reactions),
 // pour s'encourager sans se comparer sur la performance.
 router.get("/:id/feed", async (req: AuthRequest, res) => {
   const campId = req.params.id;
@@ -359,7 +408,7 @@ router.get("/:id/feed", async (req: AuthRequest, res) => {
   const [logs, circuitLogs] = await Promise.all([
     prisma.exerciseLog.findMany({
       where: { campId },
-      include: { user: { select: { id: true, name: true } }, exercise: { select: { name: true } } },
+      include: { user: { select: { id: true, name: true } }, exercise: { select: { name: true, unit: true } } },
       orderBy: { createdAt: "desc" },
       take: 30,
     }),
@@ -380,6 +429,10 @@ router.get("/:id/feed", async (req: AuthRequest, res) => {
       label: l.exercise.name,
       date: l.date.toISOString(),
       createdAt: l.createdAt,
+      setsDone: l.setsDone as number | null,
+      valueDone: l.valueDone as number | null,
+      unit: l.exercise.unit as string | null,
+      durationSeconds: null as number | null,
     })),
     ...circuitLogs.map((l) => ({
       targetType: "circuit" as const,
@@ -389,6 +442,10 @@ router.get("/:id/feed", async (req: AuthRequest, res) => {
       label: l.campCircuit.name,
       date: l.date.toISOString(),
       createdAt: l.createdAt,
+      setsDone: null as number | null,
+      valueDone: null as number | null,
+      unit: null as string | null,
+      durationSeconds: l.durationSeconds as number | null,
     })),
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())

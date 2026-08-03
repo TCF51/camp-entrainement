@@ -15,6 +15,10 @@ interface FeedItem {
   userName: string;
   label: string;
   date: string;
+  setsDone: number | null;
+  valueDone: number | null;
+  unit: "REPS" | "SECONDS" | null;
+  durationSeconds: number | null;
   reactions: ReactionSummary[];
 }
 
@@ -30,6 +34,8 @@ interface CampDetailData {
   createdById: string;
   startDate: string | null;
   endDate: string | null;
+  isEnded: boolean;
+  myRole: "COACH" | "PLAYER";
   exercises: CampExerciseData[];
   circuits: CampCircuitData[];
   members: { user: { id: string; name: string } }[];
@@ -74,6 +80,14 @@ export default function CampDetail() {
   const [runningExercise, setRunningExercise] = useState<CampExerciseData | null>(null);
   const [feed, setFeed] = useState<FeedItem[] | null>(null);
   const [duplicating, setDuplicating] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+
+  async function copyCode() {
+    if (!camp) return;
+    await navigator.clipboard.writeText(camp.code);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  }
 
   function loadFeed() {
     if (!id) return;
@@ -182,7 +196,17 @@ export default function CampDetail() {
     <div className="max-w-2xl">
       <div className="flex items-start justify-between flex-wrap gap-3 mb-2">
         <div>
-          <h1 className="font-display text-3xl uppercase tracking-wide">{camp.name}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="font-display text-3xl uppercase tracking-wide">{camp.name}</h1>
+            {camp.isEnded && (
+              <span className="text-[10px] uppercase tracking-wide bg-surface2 border border-border rounded px-2 py-0.5 text-muted">
+                Termine
+              </span>
+            )}
+            <span className="text-[10px] uppercase tracking-wide bg-accent/15 text-accent rounded px-2 py-0.5">
+              {camp.myRole === "COACH" ? "Entraineur" : "Coequipier"}
+            </span>
+          </div>
           <p className="text-muted text-sm">
             {camp.members.length} membre{camp.members.length > 1 ? "s" : ""} :{" "}
             {camp.members.map((m) => m.user.name).join(", ")}
@@ -196,7 +220,10 @@ export default function CampDetail() {
         </div>
         <div className="bg-surface border border-border rounded-md px-3 py-2 text-center">
           <p className="text-[10px] uppercase tracking-widest text-muted">Code</p>
-          <p className="font-mono text-lg text-accent">{camp.code}</p>
+          <p className="font-mono text-lg text-accent mb-1">{camp.code}</p>
+          <button onClick={copyCode} className="text-[10px] text-muted hover:text-accent">
+            {codeCopied ? "Copie !" : "📋 Copier"}
+          </button>
         </div>
       </div>
 
@@ -473,6 +500,15 @@ export default function CampDetail() {
             <p className="text-sm">
               <span className="font-medium">{item.userName}</span> a validé{" "}
               <span className="text-muted">{item.label}</span>
+              {item.targetType === "exercise" && item.setsDone != null && item.valueDone != null && (
+                <span className="text-muted">
+                  {" "}
+                  ({item.setsDone} x {item.unit === "SECONDS" ? secondsToMMSS(item.valueDone) : `${item.valueDone} reps`})
+                </span>
+              )}
+              {item.targetType === "circuit" && item.durationSeconds != null && (
+                <span className="text-muted"> ({secondsToMMSS(item.durationSeconds)})</span>
+              )}
             </p>
             <div className="flex items-center justify-between mt-2">
               <p className="text-[10px] text-muted">

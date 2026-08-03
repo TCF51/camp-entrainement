@@ -12,6 +12,8 @@ export interface UserProfile {
   sport: string | null;
   sportLevel: string | null;
   avatarBase64: string | null;
+  location: string | null;
+  equipment: string | null;
 }
 
 interface AuthContextValue {
@@ -92,6 +94,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth doit etre utilise dans un AuthProvider");
+  if (!ctx) throw new Error("useAuth doit être utilisé dans un AuthProvider");
   return ctx;
 }
