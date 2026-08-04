@@ -33,7 +33,7 @@ export default function Dashboard() {
           </Link>
           <Link
             to="/camps/creer"
-            className="bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md px-4 py-2 text-sm"
+            className="brand-gradient hover:opacity-90 transition-opacity text-white font-semibold rounded-md px-4 py-2 text-sm"
           >
             + Nouveau camp
           </Link>
@@ -44,9 +44,10 @@ export default function Dashboard() {
 
       {camps?.length === 0 && (
         <div className="bg-surface border border-dashed border-border rounded-xl p-8 text-center">
-          <p className="font-display text-xl uppercase tracking-wide mb-2">Aucun camp pour l'instant</p>
+          <p className="font-display text-xl uppercase tracking-wide mb-2">C'est calme par ici 🌱</p>
           <p className="text-muted text-sm mb-5">
-            Crée ton premier camp d'entraînement, ou rejoins celui de quelqu'un d'autre avec son code.
+            Cree ton premier camp — pas besoin d'etre sportif, juste l'envie de bouger un peu plus — ou rejoins
+            celui d'un proche avec son code.
           </p>
         </div>
       )}

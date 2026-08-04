@@ -39,8 +39,8 @@ export default function Register() {
         </div>
 
         <div className="bg-surface border border-border rounded-xl p-6">
-          <h1 className="font-display text-2xl uppercase tracking-wide mb-1">Créer un compte</h1>
-          <p className="text-muted text-sm mb-6">Rejoins ou crée ton premier camp d'entraînement.</p>
+          <h1 className="font-display text-2xl uppercase tracking-wide mb-1">Bienvenue !</h1>
+          <p className="text-muted text-sm mb-6">Que tu sois sportif aguerri ou juste envie de bouger un peu plus, tu es au bon endroit.</p>
 
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
@@ -130,7 +130,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md py-2 disabled:opacity-60"
+              className="w-full brand-gradient hover:opacity-90 transition-opacity text-white font-semibold rounded-md py-2.5 disabled:opacity-60"
             >
               {busy ? "Création..." : "Créer mon compte"}
             </button>

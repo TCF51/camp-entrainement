@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import DurationInput from "../components/DurationInput";
 import CircuitRunner from "../components/CircuitRunner";
 import ExerciseMediaModal from "../components/ExerciseMediaModal";
@@ -64,6 +65,7 @@ function targetLabelFor(item: TodayExerciseItem): string {
 }
 
 export default function Today() {
+  const { user } = useAuth();
   const [items, setItems] = useState<TodayExerciseItem[] | null>(null);
   const [circuits, setCircuits] = useState<TodayCircuitItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null); // campExerciseId (simple) ou exerciseId (groupe)
@@ -244,7 +246,7 @@ export default function Today() {
         </div>
       )}
 
-      <h1 className="font-display text-3xl uppercase tracking-wide mb-1">Aujourd'hui</h1>
+      <h1 className="font-display text-3xl uppercase tracking-wide mb-1">Salut {user?.name?.split(" ")[0] ?? ""} 👋</h1>
       <p className="text-muted text-sm mb-3">
         {total === 0
           ? "Rien de prevu aujourd'hui."
@@ -277,7 +279,8 @@ export default function Today() {
       {items?.length === 0 && circuits.length === 0 && (
         <div className="bg-surface border border-dashed border-border rounded-xl p-8 text-center">
           <p className="text-muted text-sm mb-3">
-            Aucun exercice programmé pour aujourd'hui. Va voir tes camps pour rejoindre ou créer un camp.
+            Rien de prevu aujourd'hui — profite de ta journee, ou va voir tes camps pour en rejoindre ou en créer un
+            si l'envie de bouger te prend !
           </p>
           <Link to="/camps" className="text-accent hover:text-accentSoft text-sm">
             Voir mes camps
@@ -374,7 +377,7 @@ export default function Today() {
                     {allDone ? (
                       <button
                         onClick={() => undo(first)}
-                        className="stamp-btn w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 bg-success/20 border-success text-success"
+                        className="stamp-btn pop-success w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 bg-success/20 border-success text-success"
                         title="Fait - clique pour annuler"
                       >
                         ✓

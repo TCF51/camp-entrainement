@@ -35,8 +35,8 @@ export default function Login() {
         </div>
 
         <div className="bg-surface border border-border rounded-xl p-6">
-          <h1 className="font-display text-2xl uppercase tracking-wide mb-1">Connexion</h1>
-          <p className="text-muted text-sm mb-6">Reprends ton entraînement la ou tu l'as laisse.</p>
+          <h1 className="font-display text-2xl uppercase tracking-wide mb-1">Content de te revoir !</h1>
+          <p className="text-muted text-sm mb-6">On reprend la ou tu t'es arrete(e) ?</p>
 
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
@@ -76,7 +76,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full bg-accent hover:bg-accentSoft transition-colors text-bg font-semibold rounded-md py-2 disabled:opacity-60"
+              className="w-full brand-gradient hover:opacity-90 transition-opacity text-white font-semibold rounded-md py-2.5 disabled:opacity-60"
             >
               {busy ? "Connexion..." : "Se connecter"}
             </button>
