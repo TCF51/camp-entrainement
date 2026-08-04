@@ -49,6 +49,7 @@ model User {
   resetTokens    PasswordResetToken[]
   sentConnections     Connection[] @relation("ConnectionRequester")
   receivedConnections Connection[] @relation("ConnectionRecipient")
+  notifications  Notification[]
 }
 
 model Exercise {
@@ -316,4 +317,21 @@ model Connection {
   recipient User @relation("ConnectionRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@unique([requesterId, recipientId])
+}
+
+// Notification en-app (centre de notifications) : persiste ce qui a ete pousse en push,
+// pour un historique consultable dans l'appli meme sans avoir recu le push (ou sans
+// notifications activees sur l'appareil).
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // "REACTION" | "CAMP_MESSAGE" | "DIRECT_MESSAGE" | "TEAMMATE_REQUEST" | "CAMP_UPDATED" | "REMINDER"
+  title     String
+  body      String
+  link      String?  // chemin frontend a ouvrir au clic, ex: "/camps/xxx/discussion"
+  relatedId String?  // id de la ressource concernee (ex: connectionId pour TEAMMATE_REQUEST)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

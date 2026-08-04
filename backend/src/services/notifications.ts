@@ -78,13 +78,17 @@ export async function sendDailyReminders() {
     if (subscriptions.length === 0) continue;
 
     const names = [...new Set(pending.map((p) => p.name))];
-    const payload = JSON.stringify({
-      title: "C'est le moment de faire votre séance ! 💪",
-      body:
-        names.length === 1
-          ? `${names[0]} t'attend aujourd'hui.`
-          : `${names.slice(0, 3).join(", ")}${names.length > 3 ? "…" : ""} t'attendent aujourd'hui.`,
+    const title = "C'est le moment de faire votre séance ! 💪";
+    const bodyText =
+      names.length === 1
+        ? `${names[0]} t'attend aujourd'hui.`
+        : `${names.slice(0, 3).join(", ")}${names.length > 3 ? "…" : ""} t'attendent aujourd'hui.`;
+
+    await prisma.notification.create({
+      data: { userId, type: "REMINDER", title, body: bodyText, link: "/aujourdhui" },
     });
+
+    const payload = JSON.stringify({ title, body: bodyText });
 
     for (const sub of subscriptions) {
       try {
@@ -132,4 +136,22 @@ export async function sendPushToUser(userId: string, title: string, body: string
       }
     }
   }
+}
+
+// Cree une notification dans le centre de notifications de l'appli ET envoie le push
+// correspondant. C'est la fonction a utiliser partout (reactions, messages, demandes de
+// coequipier, modifications de camp, rappels...) plutot que sendPushToUser seul, pour que
+// la personne retrouve l'info dans l'appli meme si elle n'a pas recu/active le push.
+export async function notifyUser(
+  userId: string,
+  type: string,
+  title: string,
+  body: string,
+  link?: string,
+  relatedId?: string
+) {
+  await prisma.notification.create({
+    data: { userId, type, title, body, link: link ?? null, relatedId: relatedId ?? null },
+  });
+  await sendPushToUser(userId, title, body);
 }

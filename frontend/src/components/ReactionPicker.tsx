@@ -62,7 +62,7 @@ export default function ReactionPicker({ targetType, targetId, reactions, onChan
       </div>
 
       {open && (
-        <div className="absolute z-10 mt-1 bg-surface border border-border rounded-lg p-2 grid grid-cols-4 gap-1 shadow-lg">
+        <div className="absolute z-10 right-0 mt-1 bg-surface border border-border rounded-lg p-2 grid grid-cols-4 gap-1 shadow-lg w-max max-w-[85vw]">
           {REACTIONS.map((r) => (
             <button
               key={r.key}

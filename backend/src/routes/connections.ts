@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AuthRequest, requireAuth } from "../middleware/auth";
 import { computeOverallRegularityRate } from "../utils/badges";
-import { sendPushToUser } from "../services/notifications";
+import { notifyUser } from "../services/notifications";
 
 const router = Router();
 router.use(requireAuth);
@@ -64,9 +64,14 @@ router.post("/", async (req: AuthRequest, res) => {
   });
 
   const me = await prisma.user.findUnique({ where: { id: req.userId } });
-  sendPushToUser(recipientId, "🤝 Nouvelle demande", `${me?.name ?? "Quelqu'un"} veut devenir ton coequipier.`).catch(
-    () => {}
-  );
+  notifyUser(
+    recipientId,
+    "TEAMMATE_REQUEST",
+    "🤝 Nouvelle demande",
+    `${me?.name ?? "Quelqu'un"} veut devenir ton coequipier.`,
+    "/coequipiers",
+    connection.id
+  ).catch(() => {});
 
   res.status(201).json(connection);
 });

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AuthRequest, requireAuth } from "../middleware/auth";
-import { sendPushToUser } from "../services/notifications";
+import { notifyUser } from "../services/notifications";
 
 const router = Router();
 router.use(requireAuth);
@@ -69,7 +69,7 @@ router.post("/", async (req: AuthRequest, res) => {
   const { recipientId, body } = parsed.data;
 
   if (recipientId === req.userId) {
-    return res.status(400).json({ error: "Impossible de s'envoyer un message a soi-meme." });
+    return res.status(400).json({ error: "Impossible de s'envoyer un message a soi-même." });
   }
   if (!(await assertContact(req.userId!, recipientId))) {
     return res.status(403).json({ error: "Vous ne partagez aucun camp ensemble." });
@@ -81,7 +81,7 @@ router.post("/", async (req: AuthRequest, res) => {
 
   const sender = await prisma.user.findUnique({ where: { id: req.userId } });
   const preview = body.trim().length > 80 ? `${body.trim().slice(0, 80)}…` : body.trim();
-  sendPushToUser(recipientId, `💬 Message de ${sender?.name ?? ""}`, preview).catch(() => {});
+  notifyUser(recipientId, "DIRECT_MESSAGE", `💬 Message de ${sender?.name ?? ""}`, preview, "/messages").catch(() => {});
 
   res.status(201).json(message);
 });

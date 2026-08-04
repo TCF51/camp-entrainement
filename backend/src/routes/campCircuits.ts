@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { AuthRequest, requireAuth } from "../middleware/auth";
 import { toDayStart } from "../utils/recurrence";
 import { checkAndAwardBadges } from "../utils/badges";
+import { notifyUser } from "../services/notifications";
 
 const router = Router();
 router.use(requireAuth);
@@ -12,6 +13,7 @@ const recurrenceSchema = z.discriminatedUnion("recurrenceType", [
   z.object({ recurrenceType: z.literal("DAILY") }),
   z.object({ recurrenceType: z.literal("WEEKLY"), daysOfWeek: z.array(z.number().min(0).max(6)).min(1) }),
   z.object({ recurrenceType: z.literal("EVERY_N_DAYS"), intervalDays: z.number().min(1) }),
+  z.object({ recurrenceType: z.literal("WEEKLY_COUNT"), timesPerWeek: z.number().min(1).max(7) }),
 ]);
 
 const circuitSchema = z
@@ -31,12 +33,19 @@ async function assertCoach(userId: string, campId: string) {
   const camp = await prisma.camp.findUnique({ where: { id: campId } });
   if (!camp) return { ok: false as const, status: 404, error: "Camp introuvable." };
   if (camp.createdById !== userId) {
-    return { ok: false as const, status: 403, error: "Seul le createur du camp peut definir les circuits." };
+    return { ok: false as const, status: 403, error: "Seul le créateur du camp peut définir les circuits." };
   }
-  return { ok: true as const };
+  return { ok: true as const, campName: camp.name };
 }
 
-// Cree un circuit training pour un camp : reserve au createur du camp
+async function notifyOtherMembers(campId: string, exceptUserId: string, campName: string, message: string) {
+  const others = await prisma.campMembership.findMany({ where: { campId, userId: { not: exceptUserId } } });
+  for (const m of others) {
+    notifyUser(m.userId, "CAMP_UPDATED", `📋 ${campName}`, message, `/camps/${campId}`).catch(() => {});
+  }
+}
+
+// Créé un circuit training pour un camp : réservé au créateur du camp
 router.post("/", async (req: AuthRequest, res) => {
   const parsed = circuitSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -60,13 +69,16 @@ router.post("/", async (req: AuthRequest, res) => {
       recurrenceType: data.recurrenceType,
       daysOfWeek: data.recurrenceType === "WEEKLY" ? JSON.stringify(data.daysOfWeek) : null,
       intervalDays: data.recurrenceType === "EVERY_N_DAYS" ? data.intervalDays : null,
+      timesPerWeek: data.recurrenceType === "WEEKLY_COUNT" ? data.timesPerWeek : null,
     },
   });
+
+  notifyOtherMembers(data.campId, req.userId!, check.campName, `Nouveau circuit "${circuit.name}" ajoute.`);
 
   res.status(201).json(circuit);
 });
 
-// Modifie un circuit existant : reserve au createur du camp
+// Modifie un circuit existant : réservé au créateur du camp
 router.put("/:id", async (req: AuthRequest, res) => {
   const existing = await prisma.campCircuit.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: "Circuit introuvable." });
@@ -93,13 +105,16 @@ router.put("/:id", async (req: AuthRequest, res) => {
       recurrenceType: data.recurrenceType,
       daysOfWeek: data.recurrenceType === "WEEKLY" ? JSON.stringify(data.daysOfWeek) : null,
       intervalDays: data.recurrenceType === "EVERY_N_DAYS" ? data.intervalDays : null,
+      timesPerWeek: data.recurrenceType === "WEEKLY_COUNT" ? data.timesPerWeek : null,
     },
   });
+
+  notifyOtherMembers(data.campId, req.userId!, check.campName, `Le circuit "${circuit.name}" a ete modifie.`);
 
   res.json(circuit);
 });
 
-// Supprime un circuit : reserve au createur du camp
+// Supprime un circuit : réservé au créateur du camp
 router.delete("/:id", async (req: AuthRequest, res) => {
   const existing = await prisma.campCircuit.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: "Circuit introuvable." });
@@ -113,7 +128,7 @@ router.delete("/:id", async (req: AuthRequest, res) => {
 
 const logSchema = z.object({ durationSeconds: z.number().min(0) });
 
-// Valide la realisation d'un circuit de camp pour aujourd'hui (accessible a tout membre du camp)
+// Valide la réalisation d'un circuit de camp pour aujourd'hui (accessible à tout membre du camp)
 router.post("/:id/log", async (req: AuthRequest, res) => {
   const circuit = await prisma.campCircuit.findUnique({ where: { id: req.params.id } });
   if (!circuit) return res.status(404).json({ error: "Circuit introuvable." });
@@ -125,7 +140,7 @@ router.post("/:id/log", async (req: AuthRequest, res) => {
 
   const parsed = logSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Duree invalide." });
+    return res.status(400).json({ error: "Durée invalide." });
   }
 
   const day = toDayStart(new Date());

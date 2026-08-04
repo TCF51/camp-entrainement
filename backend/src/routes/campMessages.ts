@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AuthRequest, requireAuth } from "../middleware/auth";
-import { sendPushToUser } from "../services/notifications";
+import { notifyUser } from "../services/notifications";
 
 const router = Router();
 router.use(requireAuth);
@@ -14,7 +14,7 @@ async function assertMember(userId: string, campId: string) {
   return !!membership;
 }
 
-// Liste les messages du camp (les plus recents en dernier), reserve aux membres du camp
+// Liste les messages du camp (les plus recents en dernier), réservé aux membres du camp
 router.get("/:campId/messages", async (req: AuthRequest, res) => {
   const { campId } = req.params;
   if (!(await assertMember(req.userId!, campId))) {
@@ -33,7 +33,7 @@ router.get("/:campId/messages", async (req: AuthRequest, res) => {
 
 const sendSchema = z.object({ body: z.string().min(1).max(2000) });
 
-// Envoie un message dans le camp, reserve aux membres du camp
+// Envoie un message dans le camp, réservé aux membres du camp
 router.post("/:campId/messages", async (req: AuthRequest, res) => {
   const { campId } = req.params;
   if (!(await assertMember(req.userId!, campId))) {
@@ -42,7 +42,7 @@ router.post("/:campId/messages", async (req: AuthRequest, res) => {
 
   const parsed = sendSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Le message ne peut pas etre vide." });
+    return res.status(400).json({ error: "Le message ne peut pas être vide." });
   }
 
   const message = await prisma.campMessage.create({
@@ -50,14 +50,20 @@ router.post("/:campId/messages", async (req: AuthRequest, res) => {
     include: { user: { select: { id: true, name: true } } },
   });
 
-  // Notifie les autres membres du camp (pas l'expediteur), sans bloquer la reponse
+  // Notifie les autres membres du camp (pas l'expediteur), sans bloquer la réponse
   prisma.camp.findUnique({ where: { id: campId } }).then((camp) => {
     prisma.campMembership
       .findMany({ where: { campId, userId: { not: req.userId } } })
       .then((others) => {
         const preview = message.body.length > 80 ? `${message.body.slice(0, 80)}…` : message.body;
         for (const m of others) {
-          sendPushToUser(m.userId, `💬 ${camp?.name ?? "Camp"}`, `${message.user.name} : ${preview}`).catch(() => {});
+          notifyUser(
+            m.userId,
+            "CAMP_MESSAGE",
+            `💬 ${camp?.name ?? "Camp"}`,
+            `${message.user.name} : ${preview}`,
+            `/camps/${campId}/discussion`
+          ).catch(() => {});
         }
       });
   });

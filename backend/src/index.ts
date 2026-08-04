@@ -21,6 +21,7 @@ import restDayRoutes from "./routes/restDays";
 import reactionRoutes from "./routes/reactions";
 import favoriteCircuitRoutes from "./routes/favoriteCircuits";
 import connectionRoutes from "./routes/connections";
+import notificationRoutes from "./routes/notifications";
 import { initPush, scheduleReminders } from "./services/notifications";
 
 const app = express();
@@ -49,6 +50,7 @@ app.use("/api/rest-days", restDayRoutes);
 app.use("/api/reactions", reactionRoutes);
 app.use("/api/favorite-circuits", favoriteCircuitRoutes);
 app.use("/api/connections", connectionRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Gestion d'erreur generique (evite qu'une exception fasse planter le process)
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

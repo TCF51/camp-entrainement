@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
+import NotificationBell from "./NotificationBell";
 
 const desktopNavItems = [
   { to: "/aujourdhui", label: "Aujourd'hui" },
@@ -33,9 +34,18 @@ export default function Layout({ children }: { children: ReactNode }) {
     <div className="min-h-screen flex flex-col md:flex-row">
       <header className="md:w-64 md:min-h-screen border-b md:border-b-0 md:border-r border-border bg-surface flex md:flex-col justify-between">
         <div className="p-4 md:p-6 w-full">
-          <div className="flex items-center justify-center md:justify-start gap-2 mb-0 md:mb-8">
-            <img src="/logo-mark.png" alt="" className="w-11 h-11 md:w-8 md:h-8 object-contain" />
-            <span className="font-display text-xl md:text-lg tracking-wide uppercase">GoTeam</span>
+          <div className="flex items-center justify-between md:justify-start gap-2 mb-0 md:mb-8">
+            <div className="w-9 md:hidden" />
+            <div className="flex items-center gap-2">
+              <img src="/logo-mark.png" alt="" className="w-11 h-11 md:w-8 md:h-8 object-contain" />
+              <span className="font-display text-xl md:text-lg tracking-wide uppercase">GoTeam</span>
+            </div>
+            <div className="md:hidden">
+              <NotificationBell />
+            </div>
+            <div className="hidden md:block md:ml-auto">
+              <NotificationBell />
+            </div>
           </div>
           <nav className="hidden md:flex md:flex-col gap-1">
             {desktopNavItems.map((item) => (

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AuthRequest, requireAuth } from "../middleware/auth";
 import { REACTION_CATALOG, REACTION_KEYS } from "../utils/reactions";
-import { sendPushToUser } from "../services/notifications";
+import { notifyUser } from "../services/notifications";
 
 const router = Router();
 router.use(requireAuth);
@@ -60,10 +60,12 @@ router.post("/", async (req: AuthRequest, res) => {
   if (ownerId && ownerId !== req.userId) {
     const def = REACTION_CATALOG.find((r) => r.key === type);
     const me = await prisma.user.findUnique({ where: { id: req.userId } });
-    sendPushToUser(
+    notifyUser(
       ownerId,
+      "REACTION",
       `${def?.emoji ?? "👏"} Nouvelle reaction`,
-      `${me?.name ?? "Quelqu'un"} a reagi a ta séance (${def?.label ?? type}).`
+      `${me?.name ?? "Quelqu'un"} a reagi a ta séance (${def?.label ?? type}).`,
+      `/camps/${campId}`
     ).catch(() => {});
   }
 
